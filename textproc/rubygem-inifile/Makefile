@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift <douglas@douglasthrift.net>
-# $FreeBSD: head/textproc/rubygem-inifile/Makefile 436527 2017-03-20 00:29:02Z sunpoet $
+# $FreeBSD$
 
 PORTNAME=	inifile
 PORTVERSION=	3.0.0

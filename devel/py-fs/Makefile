@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift <douglas@douglasthrift.net>
-# $FreeBSD: head/devel/py-fs/Makefile 401890 2015-11-18 20:01:36Z rm $
+# $FreeBSD$
 
 PORTNAME=	fs
 PORTVERSION=	0.5.4

@@ -1,4 +1,4 @@
-# $FreeBSD: head/www/mod_wsgi4/Makefile 464189 2018-03-11 17:38:45Z brnrd $
+# $FreeBSD$
 
 PORTNAME=	mod_wsgi
 DISTVERSION=	4.6.7

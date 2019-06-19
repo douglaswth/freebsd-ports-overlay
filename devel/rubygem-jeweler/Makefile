@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift
-# $FreeBSD: head/devel/rubygem-jeweler/Makefile 458509 2018-01-09 04:13:47Z swills $
+# $FreeBSD$
 
 PORTNAME=	jeweler
 PORTVERSION=	2.3.7

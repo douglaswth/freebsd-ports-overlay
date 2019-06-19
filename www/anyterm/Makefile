@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift <douglas@douglasthrift.net>
-# $FreeBSD: head/www/anyterm/Makefile 498698 2019-04-12 06:36:31Z jbeich $
+# $FreeBSD$
 
 PORTNAME=	anyterm
 PORTVERSION=	1.1.29

@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift
-# $FreeBSD: head/www/trac-TracGoogleAnalytics/Makefile 472884 2018-06-20 17:05:41Z mat $
+# $FreeBSD$
 
 PORTNAME=	TracGoogleAnalytics
 PORTVERSION=	0.2.4

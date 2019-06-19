@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift <douglas@douglasthrift.net>
-# $FreeBSD: head/security/py-keyrings.alt/Makefile 490215 2019-01-13 21:42:30Z pi $
+# $FreeBSD$
 
 PORTNAME=	keyrings.alt
 PORTVERSION=	3.1.1

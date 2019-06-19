@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift <douglas@douglasthrift.net>
-# $FreeBSD: head/devel/py-gitosis/Makefile 494156 2019-02-28 15:36:27Z kai $
+# $FreeBSD$
 
 PORTNAME=	gitosis
 PORTVERSION=	0.3

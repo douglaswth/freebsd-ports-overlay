@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift <douglas@douglasthrift.net>
-# $FreeBSD: head/x11-themes/metacity-theme-microgui/Makefile 375282 2014-12-22 22:51:56Z bapt $
+# $FreeBSD$
 
 PORTNAME=	microgui
 PORTVERSION=	1.0

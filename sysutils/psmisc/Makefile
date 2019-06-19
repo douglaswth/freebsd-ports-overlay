@@ -1,5 +1,5 @@
 # Created by: rantapaa@uswest.net
-# $FreeBSD: head/sysutils/psmisc/Makefile 428152 2016-12-08 19:52:19Z tijl $
+# $FreeBSD$
 
 PORTNAME=	psmisc
 PORTVERSION=	22.16

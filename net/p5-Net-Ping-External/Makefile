@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift <douglas@douglasthrift.net>
-# $FreeBSD: head/net/p5-Net-Ping-External/Makefile 449893 2017-09-15 08:58:46Z mat $
+# $FreeBSD$
 
 PORTNAME=	Net-Ping-External
 PORTVERSION=	0.15

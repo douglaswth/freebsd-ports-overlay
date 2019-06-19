@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift <douglas@douglasthrift.net>
-# $FreeBSD: head/www/dtse/Makefile 432464 2017-01-26 02:11:54Z jhale $
+# $FreeBSD$
 
 PORTNAME=	dtse
 PORTVERSION=	1.3

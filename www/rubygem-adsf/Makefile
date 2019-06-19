@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift <douglas@douglasthrift.net>
-# $FreeBSD: head/www/rubygem-adsf/Makefile 436525 2017-03-20 00:28:52Z sunpoet $
+# $FreeBSD$
 
 PORTNAME=	adsf
 PORTVERSION=	1.4.1

@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift
-# $FreeBSD: head/sysutils/hardlink/Makefile 412349 2016-04-01 14:25:16Z mat $
+# $FreeBSD$
 
 PORTNAME=	hardlink
 PORTVERSION=	0.3.0

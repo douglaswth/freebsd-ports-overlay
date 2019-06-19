@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift <douglas@douglasthrift.net>
-# $FreeBSD: head/www/py-selenium/Makefile 497195 2019-03-29 20:16:36Z jbeich $
+# $FreeBSD$
 
 PORTNAME=	selenium
 PORTVERSION=	3.141.0

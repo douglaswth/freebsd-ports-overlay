@@ -1,5 +1,5 @@
 # Created by: Douglas Thrift <douglas@douglasthrift.net>
-# $FreeBSD: head/security/py-keyring/Makefile 498530 2019-04-10 06:18:31Z antoine $
+# $FreeBSD$
 
 PORTNAME=	keyring
 DISTVERSION=	12.0.1
