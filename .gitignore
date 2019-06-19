@@ -1,5 +1,7 @@
 /distfiles
 /packages
+/*.diff
+/*/*.diff
 /*/*/Makefile.local
 /*/*/work
 /*/*/work-*
