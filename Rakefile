@@ -13,8 +13,10 @@ require 'set'
 Color = Pry::Helpers::Text
 
 def in_portdir(&block)
-  Dir.chdir(Rake.original_dir) do |portdir|
-    block.call(Pathname.new(portdir))
+  portdir = Pathname.new(Rake.original_dir)
+  raise "#{portdir} is not a port directory" unless portdir.relative_path_from(@portsdir).to_s =~ %r{[^/]+/[^/]+}
+  Dir.chdir(portdir) do
+    block.call(portdir)
   end
 end
 
@@ -42,7 +44,7 @@ def update_portstree_map(map = {})
 end
 
 portstree_map = update_portstree_map
-portsdir = Pathname.pwd
+portsdir = @portsdir = Pathname.pwd
 distdir = portsdir.join('distfiles')
 
 task default: %i(update_githead update_svnhead)
