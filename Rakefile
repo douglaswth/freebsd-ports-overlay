@@ -94,7 +94,7 @@ desc 'Show the port differences'
 task diff: :update_svnhead do |_, args|
   patch = args.extras.find {|arg| arg == 'patch'}
   in_portdir do |portdir|
-    new_files = Set.new(`git ls-files`.each_line.map{|line| Pathname.new(line.chomp)})
+    new_files = Set.new(`git ls-files`.each_line.map {|line| Pathname.new(line.chomp)})
     in_portstree(svnhead_portstree) do |path|
       rel_portdir = portdir.relative_path_from(portsdir)
       svnhead_portdir = path.join(rel_portdir)
@@ -110,10 +110,10 @@ task diff: :update_svnhead do |_, args|
           sh "sudo mkdir -p #{file.dirname}" unless file.dirname.exist?
           sh "sudo cp #{portdir_file} #{file}"
         end
-        (old_files - new_files).each do |file|
+        (new_files - old_files).each do |file|
           sh "sudo svn add --parents #{file}"
         end
-        (new_files - old_files).each do |file|
+        (old_files - new_files).each do |file|
           sh "sudo svn remove #{file}"
         end
         unless old_files.empty?
