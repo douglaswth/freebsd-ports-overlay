@@ -68,7 +68,8 @@ end
   desc "Show the #{sum.upcase} sums of the distfiles"
   task sum do
     sh "mkdir -p #{distdir}" unless distdir.exist?
-    sh "#{sum} #{distdir.join('*')}"
+    files = distdir.glob('**/*').select {|dist| dist.file?}.map {|dist| dist.relative_path_from(portsdir)}
+    sh "#{sum} #{files.join(' ')}" unless files.empty?
   end
 end
 
