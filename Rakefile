@@ -43,6 +43,14 @@ def update_portstree_map(map = {})
   map
 end
 
+def clean_version(version)
+  if version =~ /^(\d+\.\d+-RELEASE)(?:-p\d+)$/
+    $1
+  else
+    version
+  end
+end
+
 portstree_map = update_portstree_map
 portsdir = @portsdir = Pathname.pwd
 distdir = portsdir.join('distfiles')
@@ -123,6 +131,42 @@ task diff: :update_svnhead do |_, args|
           sh "svn diff #{rel_portdir}"
         end
       end
+    end
+  end
+end
+
+desc 'Test the port with poudriere'
+task :testport, %i(jailname flavor) => :update_githead do |_, args|
+  this_version = clean_version(`uname -r`.chomp)
+  this_arch = `uname -m`.chomp
+  this_jailname = nil
+  `poudriere jail -l -q`.each_line do |line|
+    line.chomp!
+    if line =~ /^([^ ]+) +([^ ]+) +([^ ]+) +([^ ]+).+$/
+      jailname, version, arch, method = $1, $2, $3, $4
+      if clean_version(version) == this_version && arch == this_arch && method == 'ftp'
+        this_jailname = jailname
+        break
+      end
+    else
+      raise "unexpected line: #{line}"
+    end
+  end
+  args.with_defaults(jailname: this_jailname)
+  in_portdir do |portdir|
+    files = `git ls-files`.each_line.map {|line| Pathname.new(line.chomp)}
+    in_portstree(githead_portstree) do |path|
+      rel_portdir = portdir.relative_path_from(portsdir)
+      githead_portdir = path.join(rel_portdir)
+      sh "sudo mkdir -p #{githead_portdir}"
+      Dir.chdir(githead_portdir) do
+        files.each do |file|
+          portdir_file = portdir.join(file)
+          sh "sudo mkdir -p #{file.dirname}" unless file.dirname.exist?
+          sh "sudo cp #{portdir_file} #{file}"
+        end
+      end
+      sh "sudo poudriere testport -j #{args.jailname} -o #{rel_portdir}#{args.flavor && "@#{args.flavor}"} -p githead"
     end
   end
 end
