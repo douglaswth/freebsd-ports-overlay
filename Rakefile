@@ -7,10 +7,7 @@
 require 'date'
 require 'ostruct'
 require 'pathname'
-require 'pry'
 require 'set'
-
-Color = Pry::Helpers::Text
 
 def in_portdir(&block)
   portdir = Pathname.new(Rake.original_dir)
@@ -55,7 +52,7 @@ portstree_map = update_portstree_map
 portsdir = @portsdir = Pathname.pwd
 distdir = portsdir.join('distfiles')
 
-task default: %i(update_githead update_svnhead)
+task default: %i(update_githead)
 
 desc 'Create or update the port checksum file (distinfo)'
 task :makesum do
