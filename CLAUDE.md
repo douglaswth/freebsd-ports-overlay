@@ -67,6 +67,21 @@ gh api "repos/freebsd/freebsd-ports/commits?path=dns/rubygem-simpleidn&since=<is
   --jq '.[] | "\(.sha[0:9]) \(.commit.author.date[0:10]) \(.commit.message|split("\n")[0])"'
 ```
 
+## Caronade CI
+
+A GitHub push webhook on this repository drives caronade, which parses each
+**commit subject** and, when it starts with `category/portname`, generates build
+jobs on the queues listed under `default_queues` in `caronade.yaml`. A line
+`CI: no` in the commit message suppresses job generation; `CI: yes` forces all
+queues. With neither, the default applies.
+
+FreeBSD commit subjects are written in exactly that `category/portname: ...`
+form, so **mirroring upstream commits in bulk will match en masse** and queue a
+job per commit per default queue — including for ports named in a subject that
+do not exist in this repository. Before any bulk import, either disable the
+webhook for the duration or add `CI: no` to the messages. Upstream commits have
+already been built by the FreeBSD cluster, so there is nothing for CI to add.
+
 ## Rakefile
 
 `rake` targets for working on ports. Note the Rakefile shells out to
