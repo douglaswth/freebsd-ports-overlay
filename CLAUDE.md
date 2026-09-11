@@ -40,6 +40,18 @@ fetch -qo - https://github.com/freebsd/freebsd-ports/commit/<sha>.patch |
     git am --include='dns/rubygem-simpleidn/*'
 ```
 
+GitHub's `.patch` endpoint returns 403 intermittently. The same commit can
+succeed and then be refused a minute later, and it does not track patch size or
+file count, so it has to be handled rather than assumed away. The piped form
+above fails safely (`git am` gets an empty stream), but any variant that writes
+to a file must check the fetch succeeded, or it will apply whatever patch was
+left there last. The fallback is to generate the patch from a local clone of
+the ports tree:
+
+```sh
+git -C <ports-clone> format-patch -1 --stdout <sha> | git am
+```
+
 **A patch only applies if the local file matches the context it was authored
 against.** Upstream tree-wide sweeps (removing `# $FreeBSD$`, moving `WWW=` into
 Makefiles, `USE_RUBY=yes` → `USES=ruby`, man pages to `share/man`) change that
