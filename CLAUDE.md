@@ -88,7 +88,38 @@ already been built by the FreeBSD cluster, so there is nothing for CI to add.
 `poudriere ports -l -q` at load time, so every target needs poudriere installed.
 
 - `rake` / `rake update_githead` — create or update the `githead` poudriere ports tree
-- `rake testport[jailname,flavor]` — copy the port's git-tracked files into `githead` and run `poudriere testport`
+- `rake register_overlay` — register this working copy as a poudriere ports tree
+  named `overlay`, via `poudriere ports -c -m null -M <repo> -f none`. `-m null`
+  means poudriere registers the directory without creating or populating it, and
+  `-f none` is required or the create errors on the directory already existing.
+- `rake testport[jailname,flavor]` — `poudriere testport -p githead -O overlay`.
+  `-O` takes a registered tree *name*, not a path, and poudriere nullfs-mounts it
+  over the base tree, resolving ports through it first (`common.sh:874-875`,
+  `:2310-2313`). So the build reads this working copy directly. `githead` stays as
+  the base tree — it supplies `Mk/`, the dependencies and every port not carried
+  here.
+
+  This replaced copying the port's files into the root-owned `githead` with
+  `sudo cp`, which is why `testport` now needs only one `sudo`, for the build
+  itself. Removing that one would mean `poudriered`, and it is not worth it yet:
+  `poudriere queue` is the client and takes `bulk` and `testport`, but the man
+  page has said EXPERIMENTAL since 2018-03-08, and `write_usock` is `nc -U` with
+  a heredoc that never reads a reply — so you get no build output, which is most
+  of what `testport` is for.
+- `rake diff[tree,patch]` — what this port changes relative to the ports tree,
+  which is what a PR attaches. Defaults to `githead`; `rake diff[default]` uses
+  `/usr/ports`. `rake diff[patch]` writes `<PKGNAME>.diff` at the repo root,
+  which `.gitignore` covers.
+
+  It uses `git diff --no-index` between the tree's copy of the port and this
+  one, so nothing is copied into the ports tree and no `sudo` is involved. The
+  paths are rewritten to the `a/`/`b/` form a submitted diff carries.
+
+  **`git diff` in this repo does not answer the same question.** It compares
+  against this repo's own history, so once a change is committed here it shows
+  nothing, and it never shows what differs from what FreeBSD ships. The
+  Porter's Handbook's `git diff --staged` assumes you are working inside a
+  ports tree checkout; this repo is an overlay.
 - `rake portlint` — `portlint -C` for existing ports, `-A` for new ones
 - `rake makesum`, `rake distclean`, `rake md5` / `sha1` / `sha256`
 
@@ -97,6 +128,17 @@ already been built by the FreeBSD cluster, so there is nothing for CI to add.
 `portlint` (`-A` for a new port, `-C` for an update) and `poudriere testport`,
 which also covers `pkg-plist` verification and `stage-qa`. The Porter's Handbook
 "Testing" chapter is the current authority on what is expected.
+
+Submission goes through Bugzilla, product "Ports & Packages", component
+"Individual Port(s)", titled `category/portname: Update to X.Y`. The handbook
+prefers `git format-patch` over a plain diff, because it carries author identity
+and applies with `git am` — the same mechanism used here for mirroring upstream.
+Generate it from the base of the tree, mention added or deleted files explicitly
+since git needs them named at commit time, and do not compress it. Subversion is
+not mentioned anywhere in the current handbook; `svn.freebsd.org` still serves a
+read-only archive frozen at r569609 from the April 2021 git migration, which is
+why the old svn-based `rake diff` was replaced rather than repaired — it would
+have produced a confident diff against a five-year-old tree.
 
 Test one jail per live FreeBSD branch, at the newest point release of each. Do
 not hardcode which versions or architectures those are — read the minimum
