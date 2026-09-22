@@ -69,7 +69,7 @@ gh api "repos/freebsd/freebsd-ports/commits?path=dns/rubygem-simpleidn&since=<is
 
 ## Caronade CI
 
-A GitHub push webhook on this repository drives caronade, which parses each
+A Gitea push webhook on this repository drives caronade, which parses each
 **commit subject** and, when it starts with `category/portname`, generates build
 jobs on the queues listed under `default_queues` in `caronade.yaml`. A line
 `CI: no` in the commit message suppresses job generation; `CI: yes` forces all
