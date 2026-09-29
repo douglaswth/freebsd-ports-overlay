@@ -69,18 +69,27 @@ gh api "repos/freebsd/freebsd-ports/commits?path=dns/rubygem-simpleidn&since=<is
 
 ## Caronade CI
 
-A Gitea push webhook on this repository drives caronade, which parses each
-**commit subject** and, when it starts with `category/portname`, generates build
-jobs on the queues listed under `default_queues` in `caronade.yaml`. A line
-`CI: no` in the commit message suppresses job generation; `CI: yes` forces all
-queues. With neither, the default applies.
+A Gitea push webhook on this repository drives caronade, which derives the
+affected ports from each commit's **changed file paths** — the first two
+segments of any added or modified path at least three deep, so a commit
+touching `www/mod_wsgi/Makefile` generates a job for `www/mod_wsgi`. Commit
+subjects are never consulted, whatever caronade's own README says. A commit
+that touches only root-level files, this one included, generates nothing.
 
-FreeBSD commit subjects are written in exactly that `category/portname: ...`
-form, so **mirroring upstream commits in bulk will match en masse** and queue a
-job per commit per default queue — including for ports named in a subject that
-do not exist in this repository. Before any bulk import, either disable the
-webhook for the duration or add `CI: no` to the messages. Upstream commits have
-already been built by the FreeBSD cluster, so there is nothing for CI to add.
+Jobs are generated per commit, on the queues listed under `default_queues`.
+That setting lives in caronade's own config on `slowhand`, at
+`/usr/local/etc/caronade/caronade.yaml` — root-owned, and generated from
+`~/sysadmin/caronade/`, not a file in this repository. A line `CI: no` in the
+commit message suppresses job generation; `CI: yes` forces all queues. With
+neither, the default applies. The tag has to start its line, and is matched
+case-insensitively with `no` tested before `yes`, so any `ci:` line containing
+"no" anywhere counts as no.
+
+Every mirrored upstream commit touches a port directory, so **mirroring in bulk
+will match en masse** and queue a job per commit per default queue. Before any
+bulk import, either disable the webhook for the duration or add `CI: no` to the
+messages. Upstream commits have already been built by the FreeBSD cluster, so
+there is nothing for CI to add.
 
 ## Rakefile
 
