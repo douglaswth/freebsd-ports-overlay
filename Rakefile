@@ -29,6 +29,17 @@ def update_portstree_map(map = {})
   map
 end
 
+def with_portsdir(path, &block)
+  # Set PORTSDIR around a command rather than prefixing it, so rake echoes the
+  # command alone. Restored afterwards so it cannot leak into another task in
+  # the same invocation (rake portlint diff).
+  old = ENV['PORTSDIR']
+  ENV['PORTSDIR'] = path.to_s
+  block.call
+ensure
+  ENV['PORTSDIR'] = old
+end
+
 def clean_version(version)
   if version =~ /^(\d+\.\d+-RELEASE)(?:-p\d+)$/
     $1
@@ -69,11 +80,32 @@ end
 desc 'Verify the port using portlint'
 task portlint: :update_githead do
   in_portdir do |portdir|
-    if githead_portstree.path.join(portdir.relative_path_from(portsdir), 'Makefile').exist?
-      sh "portlint -C"
-    else
-      sh "portlint -A"
+    # portlint reads MOVED, UIDs, GIDs and Mk/ out of PORTSDIR, which defaults
+    # to /usr/ports -- a tree nothing here manages, and which was four days
+    # behind when this was written. Point it at the githead tree this task
+    # already pays a sudo to keep current, so the -C/-A decision below and the
+    # lint itself consult one tree rather than two of different vintages.
+    with_portsdir(githead_portstree.path) do
+      if githead_portstree.path.join(portdir.relative_path_from(portsdir), 'Makefile').exist?
+        sh "portlint -C"
+      else
+        sh "portlint -A"
+      end
     end
+  end
+end
+
+desc 'Check the port Makefile variable order and style using portclippy'
+task :portclippy do
+  in_portdir do
+    sh "portclippy Makefile"
+  end
+end
+
+desc 'Format the port Makefile in place using portfmt'
+task :portfmt do
+  in_portdir do
+    sh "portfmt -i Makefile"
   end
 end
 
@@ -98,7 +130,11 @@ task diff: :update_githead do |_, args|
       .gsub(%r{^(.*?)#{Regexp.escape(portdir.to_s[1..])}/}) {"#{$1}b/#{rel_portdir}/"}
       .gsub(%r{^diff --git [ab]/(\S+) [ab]/(\S+)$}) {"diff --git a/#{$1} b/#{$2}"}
     if patch
-      file = portsdir.join("#{`make -V PKGNAME`.chomp}.diff")
+      # PKGNAME depends on Mk/ -- PYTHON_PKGNAMEPREFIX and friends come from
+      # there -- so resolve it against the same tree being diffed against
+      # rather than whatever PORTSDIR happens to default to.
+      pkgname = with_portsdir(portstree.path) {`make -V PKGNAME`.chomp}
+      file = portsdir.join("#{pkgname}.diff")
       file.write(diff)
       puts "wrote #{file}"
     else
@@ -131,7 +167,9 @@ task :testport, %i(jailname flavor) => %i(update_githead register_overlay) do |_
   args.with_defaults(jailname: this_jailname)
   in_portdir do |portdir|
     rel_portdir = portdir.relative_path_from(portsdir)
-    sh "sudo poudriere testport -j #{args.jailname} -o #{rel_portdir}#{args.flavor && "@#{args.flavor}"} -p githead -O overlay"
+    # -b latest prefetches binary packages for the dependencies instead of
+    # building them, matching the cron bulk builds and caronade's recipe.
+    sh "sudo poudriere testport -b latest -j #{args.jailname} -o #{rel_portdir}#{args.flavor && "@#{args.flavor}"} -p githead -O overlay"
   end
 end
 
@@ -153,5 +191,21 @@ end
       sh "sudo poudriere ports -c -m #{method} -p #{name}"
       update_portstree_map(portstree_map)
     end
+  end
+end
+
+desc 'Register this working copy as the overlay portstree'
+task :register_overlay do
+  portstree = portstree_map[:overlay]
+  if portstree
+    raise "unexpected overlay portstree path: #{portstree.path} (expected: #{portsdir})" if portstree.path != portsdir
+  else
+    # -m null registers an existing directory without poudriere creating or
+    # populating it, and -f none is required or the create errors out on the
+    # directory already existing. poudriere testport -O then nullfs-mounts this
+    # over the base tree, so the build reads this working copy directly and
+    # nothing has to be copied into the root-owned githead tree.
+    sh "sudo poudriere ports -c -m null -M #{portsdir} -f none -p overlay"
+    update_portstree_map(portstree_map)
   end
 end

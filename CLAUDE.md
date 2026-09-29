@@ -101,12 +101,17 @@ there is nothing for CI to add.
   named `overlay`, via `poudriere ports -c -m null -M <repo> -f none`. `-m null`
   means poudriere registers the directory without creating or populating it, and
   `-f none` is required or the create errors on the directory already existing.
-- `rake testport[jailname,flavor]` — `poudriere testport -p githead -O overlay`.
-  `-O` takes a registered tree *name*, not a path, and poudriere nullfs-mounts it
-  over the base tree, resolving ports through it first (`common.sh:874-875`,
-  `:2310-2313`). So the build reads this working copy directly. `githead` stays as
-  the base tree — it supplies `Mk/`, the dependencies and every port not carried
-  here.
+- `rake testport[jailname,flavor]` — `poudriere testport -b latest -p githead
+  -O overlay`. `-O` takes a registered tree *name*, not a path, and poudriere
+  nullfs-mounts it over the base tree, resolving ports through it first
+  (`common.sh:874-875`, `:2310-2313`). So the build reads this working copy
+  directly. `githead` stays as the base tree — it supplies `Mk/`, the
+  dependencies and every port not carried here.
+
+  `-b latest` prefetches binary packages for the dependencies rather than
+  building them, matching the cron bulk builds in `~/sysadmin/poudriere` and
+  caronade's own `poudriere.mk`. Without it a single port update rebuilds its
+  whole dependency tree from source.
 
   This replaced copying the port's files into the root-owned `githead` with
   `sudo cp`, which is why `testport` now needs only one `sudo`, for the build
@@ -129,8 +134,31 @@ there is nothing for CI to add.
   nothing, and it never shows what differs from what FreeBSD ships. The
   Porter's Handbook's `git diff --staged` assumes you are working inside a
   ports tree checkout; this repo is an overlay.
-- `rake portlint` — `portlint -C` for existing ports, `-A` for new ones
+  `PKGNAME` is resolved against the tree being diffed, since it depends on
+  `Mk/` — `PYTHON_PKGNAMEPREFIX` and friends come from there.
+- `rake portlint` — `portlint -C` for existing ports, `-A` for new ones. Which
+  flag it picks comes from whether the port's `Makefile` exists in `githead`;
+  the lint itself runs against this working copy, nothing is copied anywhere.
+- `rake portclippy` — `portclippy`, which checks variable **order** against the
+  handbook's `order` chapter. Not redundant with `portlint`, and the two do not
+  agree: `security/py-SecretStorage` is clean under `portclippy` while
+  `portlint` wants `RUN_DEPENDS` earlier. Treat neither as authoritative over
+  the other. 13 of the 22 ports here currently fail it.
+- `rake portfmt` — `portfmt -i`, formatting the Makefile in place.
 - `rake makesum`, `rake distclean`, `rake md5` / `sha1` / `sha256`
+
+`portlint` and `diff` set `PORTSDIR` to the `githead` tree for the commands they
+run, via the `with_portsdir` helper. It matters because `PORTSDIR` otherwise
+defaults to `/usr/ports`, which nothing here manages and which can be days
+behind — and `portlint` reads `MOVED`, `UIDs`, `GIDs` and `Mk/Uses/*.mk` out of
+it, so rename and removal checks were being made against a stale copy. The
+helper sets and restores the variable around the call rather than prefixing the
+command, so `rake` still echoes `portlint -C` and the override does not leak
+into another task in the same invocation.
+
+`portclippy` and `portfmt` need no ports tree at all — they parse the Makefile —
+so unlike `portlint`, `diff` and `testport` they carry no `update_githead`
+prerequisite and never need `sudo`.
 
 ## Testing before submitting
 
