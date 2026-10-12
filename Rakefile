@@ -61,7 +61,11 @@ task :makesum do
   end
 end
 
-%w(md5 sha1 sha256).each do |sum|
+# These are for checking a fetched distfile against the hash upstream publishes,
+# not for distinfo -- CHECKSUM_ALGORITHMS is sha256 alone and makesum writes it.
+# So the set tracks what projects publish: sha512 is the common one now, sha256
+# and the older md5/sha1 still appear.
+%w(md5 sha1 sha256 sha512).each do |sum|
   desc "Show the #{sum.upcase} sums of the distfiles"
   task sum do
     sh "mkdir -p #{distdir}" unless distdir.exist?

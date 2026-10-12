@@ -145,7 +145,12 @@ there is nothing for CI to add.
   `portlint` wants `RUN_DEPENDS` earlier. Treat neither as authoritative over
   the other. 13 of the 22 ports here currently fail it.
 - `rake portfmt` — `portfmt -i`, formatting the Makefile in place.
-- `rake makesum`, `rake distclean`, `rake md5` / `sha1` / `sha256`
+- `rake makesum`, `rake distclean`
+- `rake md5` / `sha1` / `sha256` / `sha512` — sums of the fetched distfiles, for
+  checking one against the hash **upstream publishes**. Not for `distinfo`:
+  `CHECKSUM_ALGORITHMS` is `sha256` alone and `rake makesum` writes it. The set
+  tracks what projects publish, which is why it spans four algorithms and not
+  the dozen `/sbin` offers — nothing publishes `sha384`, `rmd160` or `skein*`.
 
 `portlint` and `diff` set `PORTSDIR` to the `githead` tree for the commands they
 run, via the `with_portsdir` helper. It matters because `PORTSDIR` otherwise
