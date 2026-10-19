@@ -146,6 +146,24 @@ there is nothing for CI to add.
   the other. 13 of the 22 ports here currently fail it.
 - `rake portfmt` — `portfmt -i`, formatting the Makefile in place.
 - `rake makesum`, `rake distclean`
+- `rake makepatch` — regenerate `files/patch-*` from `.orig` copies under
+  `WRKDIR`, via `make makepatch`.
+
+  **Three different things share the word "patch" here.** `rake diff[patch]`
+  writes the single `<PKGNAME>.diff` a PR attaches, patching the *ports tree*.
+  `files/patch-*` ship inside the port and patch the *software*, and
+  `make makepatch` is what generates them. They are unrelated artifacts.
+
+  The underlying `make makepatch` **never fetches** — it regenerates patches
+  from `.orig` copies already under `WRKDIR` — so the task needs no `DISTDIR`
+  override, unlike `makesum`. `WRKDIR` and `PATCHDIR` resolve inside this
+  working copy whichever tree `PORTSDIR` names, verified identical under both.
+  The one thing it takes from the tree is `SCRIPTSDIR`'s `smart_makepatch.sh`,
+  which decides patch naming and whitespace handling — hence `with_portsdir`,
+  and hence the `rake` task carrying an `update_githead` prerequisite that the
+  `make` target itself has none of. That is a uniformity fix rather than a
+  correctness one: bare `make makepatch` in a port directory works, and the two
+  trees' copies of the script were byte-identical when this was written.
 - `rake md5` / `sha1` / `sha256` / `sha512` — sums of the fetched distfiles, for
   checking one against the hash **upstream publishes**. Not for `distinfo`:
   `CHECKSUM_ALGORITHMS` is `sha256` alone and `rake makesum` writes it. The set

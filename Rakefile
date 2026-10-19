@@ -61,6 +61,27 @@ task :makesum do
   end
 end
 
+desc 'Regenerate the port patches in files from the edited sources'
+task makepatch: :update_githead do
+  in_portdir do
+    # makepatch regenerates files/patch-* from .orig copies under WRKDIR. It is
+    # not rake diff[patch], which produces the single diff a PR attaches; these
+    # patches ship inside the port and the framework applies them at build time.
+    #
+    # make makepatch never fetches -- it regenerates patches from .orig copies
+    # already under WRKDIR -- so unlike makesum this needs no DISTDIR. WRKDIR
+    # and PATCHDIR both resolve inside this working copy whichever tree PORTSDIR
+    # names. The one thing it takes from the tree is SCRIPTSDIR's
+    # smart_makepatch.sh, which decides patch naming and whitespace handling --
+    # so run the copy from the tree update_githead keeps current rather than
+    # whatever /usr/ports happens to hold. That is why this task has a
+    # prerequisite the make target does not.
+    with_portsdir(githead_portstree.path) do
+      sh "make makepatch"
+    end
+  end
+end
+
 # These are for checking a fetched distfile against the hash upstream publishes,
 # not for distinfo -- CHECKSUM_ALGORITHMS is sha256 alone and makesum writes it.
 # So the set tracks what projects publish: sha512 is the common one now, sha256
