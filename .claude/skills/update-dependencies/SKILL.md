@@ -30,6 +30,35 @@ bundle outdated --strict
 
 Run **both** bundler checks, for the same reason as the two uv checks: plain `bundle outdated` lists gems a newer version exists for *regardless of whether your constraints allow it*, while `--strict` lists only what could actually move. The difference is the set of gems capped by a parent, and you want to see both — plain tells you what is being blocked, `--strict` tells you what `bundle update` will really do. (There is no `bundle update --dry-run`; the flag does not exist.)
 
+### 1a. Check whether Bundler itself lags
+
+`bundle outdated` says nothing about Bundler. Compare the lockfile's pin against
+what is installed:
+
+```bash
+grep -A1 'BUNDLED WITH' Gemfile.lock
+gem list bundler
+```
+
+**Read the installed version from `gem list bundler`, not `bundle --version`.**
+Bundler switches itself to the lockfile's pin, so `bundle --version` reports the
+pin and the two can never appear to disagree. Observed 2026-10-19:
+`bundle --version` said 4.0.3 while `gem list bundler` had 4.0.21 and 4.0.7, and
+every `bundle install` was downgrading itself to 4.0.3 first — the warning
+*"Bundler X is running, but your lockfile was generated with Y. Installing Y and
+restarting"* is the symptom.
+
+To move the pin, **always pass the version explicitly**:
+
+```bash
+bundle update --bundler 4.0.21
+```
+
+**Bare `bundle update --bundler` takes a prerelease.** Observed the same day: it
+pinned `BUNDLED WITH` to `4.1.0.beta2` and installed it. On a lockfile shared
+across hosts that is a prerelease Bundler on every one of them, arriving via an
+ordinary `git pull`. Name the stable version from `gem list bundler`.
+
 ### 2. Investigate each update
 
 For each outdated gem, determine whether the update is:

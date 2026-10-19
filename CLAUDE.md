@@ -92,11 +92,16 @@ to `^$`, so nothing can express "ignore dotfile directories". A one-line fix
 belongs upstream at `codeberg.org/decke/caronade` (ports-mgmt/caronade,
 `decke@FreeBSD.org`); no FreeBSD category begins with a dot.
 
-**So keep skill changes in their own commits and put `CI: no` in those commit
-messages.** Mixing a skill change into a port commit means the port's job and a
-doomed `.claude/skills` job both run, and `CI: no` would suppress the one you
-want. The tag works for this because `path_match` defaults to a pattern that
-never matches a real path, so no queue can bypass it.
+**So put `CI: no` in any commit that touches `.claude/`, and do not bundle such
+a change with one that needs CI.** The conflict is narrow and specific: a commit
+carrying both a port change and a skill change generates the port's job *and* a
+doomed `.claude/skills` job, and `CI: no` would suppress the one you want. That
+is the only mechanical reason to split. A skill change shares a commit happily
+with anything that needs no build of its own — a lockfile, the Rakefile, these
+docs — and bundling is better when they are one piece of work, such as a
+dependency update together with what was learned making it. The tag works
+because `path_match` defaults to a pattern that never matches a real path, so no
+queue can bypass it.
 
 Jobs are generated per commit, on the queues listed under `default_queues`.
 That setting lives in caronade's own config on the CI host, at
