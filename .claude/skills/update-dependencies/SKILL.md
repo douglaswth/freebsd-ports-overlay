@@ -48,16 +48,38 @@ every `bundle install` was downgrading itself to 4.0.3 first — the warning
 *"Bundler X is running, but your lockfile was generated with Y. Installing Y and
 restarting"* is the symptom.
 
-To move the pin, **always pass the version explicitly**:
+To move the pin, name the version you want:
 
 ```bash
-bundle update --bundler 4.0.21
+bundle update --bundler=4.0.23
 ```
 
-**Bare `bundle update --bundler` takes a prerelease.** Observed the same day: it
-pinned `BUNDLED WITH` to `4.1.0.beta2` and installed it. On a lockfile shared
-across hosts that is a prerelease Bundler on every one of them, arriving via an
-ordinary `git pull`. Name the stable version from `gem list bundler`.
+**Two mechanisms are at work here and the flag only controls one of them.**
+`--bundler` decides which Bundler gets installed and restarted into
+(`self_manager.rb:33-44`); `BUNDLED WITH` is written from the *resolution* —
+`definition.rb:793` takes it from the resolved `bundler` spec and
+`lockfile_generator.rb:84` writes that. With no Bundler constraint in the
+Gemfile the resolver picks the newest released version, so the lock lands there
+whatever the flag said. Observed 2026-10-19: `--bundler 4.0.7`, `--bundler
+4.0.21` and `--bundler=4.0.21` all left `BUNDLED WITH 4.0.23`, because 4.0.23
+was newest.
+
+Two consequences:
+
+- **Bare `--bundler` can take a prerelease.** Its `lazy_default` is
+  `">= #{Bundler::VERSION}"` (`cli.rb:320`), which is not `specific?`, so it
+  resolves to the newest match — it pinned a lockfile to `4.1.0.beta2` here
+  before being corrected. Always name a version.
+- **Naming the running version is a silent no-op.**
+  `needs_update = requirement.specific? ? !running?(resolved) : running_older_than?(resolved)`,
+  so `--bundler=4.0.21` while 4.0.21 is running returns early and changes
+  nothing. Nothing is printed; the absence of `Updating bundler to …` is the
+  only sign.
+
+So the way to make the warning stop is to agree with the resolver rather than
+fight it: name the newest release, which installs it and locks it, and let the
+other nodes install it on their next `bundle install`. Pinning an older version
+by hand works until the next full update resolves Bundler forward again.
 
 ### 2. Investigate each update
 
