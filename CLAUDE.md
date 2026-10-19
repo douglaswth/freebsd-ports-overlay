@@ -76,6 +76,28 @@ touching `www/mod_wsgi/Makefile` generates a job for `www/mod_wsgi`. Commit
 subjects are never consulted, whatever caronade's own README says. A commit
 that touches only root-level files, this one included, generates nothing.
 
+**But `.claude/skills/<name>/SKILL.md` is three deep, so a skill change does
+generate a job — for the non-existent port `.claude/skills`, which fails.**
+Observed 2026-10-19: pushing three commits, two of which touched
+`.claude/skills/`, produced two builds whose `portlint` job died with
+`portlint -A repo.git/.claude/skills` → `Makefile: No such file or directory`,
+and whose jail job failed the same way.
+
+This is not configurable. `getAffectedPorts` takes the first two segments of any
+path more than two deep and passes them through `isSafePortName`, whose pattern
+is `^[A-Za-z0-9_.+-]+/[A-Za-z0-9_.+-]+$` — the character class admits `.`, so a
+leading-dot directory is accepted as a category. The only path-related setting in
+caronade's config is each queue's `path_match`, an *inclusion* filter defaulting
+to `^$`, so nothing can express "ignore dotfile directories". A one-line fix
+belongs upstream at `codeberg.org/decke/caronade` (ports-mgmt/caronade,
+`decke@FreeBSD.org`); no FreeBSD category begins with a dot.
+
+**So keep skill changes in their own commits and put `CI: no` in those commit
+messages.** Mixing a skill change into a port commit means the port's job and a
+doomed `.claude/skills` job both run, and `CI: no` would suppress the one you
+want. The tag works for this because `path_match` defaults to a pattern that
+never matches a real path, so no queue can bypass it.
+
 Jobs are generated per commit, on the queues listed under `default_queues`.
 That setting lives in caronade's own config on the CI host, at
 `/usr/local/etc/caronade/caronade.yaml` — root-owned, and generated from the
