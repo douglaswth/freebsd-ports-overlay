@@ -77,9 +77,9 @@ subjects are never consulted, whatever caronade's own README says. A commit
 that touches only root-level files, this one included, generates nothing.
 
 Jobs are generated per commit, on the queues listed under `default_queues`.
-That setting lives in caronade's own config on `slowhand`, at
-`/usr/local/etc/caronade/caronade.yaml` — root-owned, and generated from
-`~/sysadmin/caronade/`, not a file in this repository. A line `CI: no` in the
+That setting lives in caronade's own config on the CI host, at
+`/usr/local/etc/caronade/caronade.yaml` — root-owned, and generated from the
+configuration-management repo, not a file in this repository. A line `CI: no` in the
 commit message suppresses job generation; `CI: yes` forces all queues. With
 neither, the default applies. The tag has to start its line, and is matched
 case-insensitively with `no` tested before `yes`, so any `ci:` line containing
@@ -109,7 +109,7 @@ there is nothing for CI to add.
   dependencies and every port not carried here.
 
   `-b latest` prefetches binary packages for the dependencies rather than
-  building them, matching the cron bulk builds in `~/sysadmin/poudriere` and
+  building them, matching the cron bulk builds configured outside this repo and
   caronade's own `poudriere.mk`. Without it a single port update rebuilds its
   whole dependency tree from source.
 

@@ -1,7 +1,7 @@
 ---
 name: update-dependencies
 description: Use when the user asks to check for or update gem dependencies, outdated gems, or security updates
-allowed-tools: Bash(bundle *) Bash(git *) Bash(unlock-gpg *) AskUserQuestion
+allowed-tools: Bash(bundle *) Bash(git *) AskUserQuestion
 ---
 
 # Updating Dependencies
@@ -97,9 +97,9 @@ After verifying, use `AskUserQuestion` to gate the commit — **Commit `Gemfile.
 
 **No `Co-Authored-By: Claude` or `Claude-Session:` trailers in this repo** — see CLAUDE.md. Commits here follow FreeBSD ports conventions and feed patches submitted upstream.
 
-**A committed lockfile is not a deployed one.** A pull on another node updates `Gemfile.lock` but not the installed gems; `bundle install` there is what makes the update real. This repo is checked out on **slowhand, okie and naturally** — the three FreeBSD nodes, because `rake testport` runs on all of them — so the unit of done is commit, push, then `git pull && bundle install` on the other two. Not on backless, which has no poudriere.
+**A committed lockfile is not a deployed one.** A pull on another node updates `Gemfile.lock` but not the installed gems; `bundle install` there is what makes the update real. This repo is checked out on every node that runs `rake testport`, which means each FreeBSD node with poudriere — so the unit of done is commit, push, then `git pull && bundle install` on each of the others.
 
-**Gems here are vendored per Ruby version** (`.bundle/config` sets `BUNDLE_PATH: ".vendor/bundle"`). A Ruby upgrade orphans the old `.vendor/bundle/ruby/<old>` tree, which `bundle clean` cannot see and will never remove; delete it by hand after reinstalling. Observed 2026-09-18: gems sat under `ruby/3.3` while slowhand had moved to 3.4, and every `rake` task failed with `Bundler::GemNotFound` until reinstalled.
+**Gems here are vendored per Ruby version** (`.bundle/config` sets `BUNDLE_PATH: ".vendor/bundle"`). A Ruby upgrade orphans the old `.vendor/bundle/ruby/<old>` tree, which `bundle clean` cannot see and will never remove; delete it by hand after reinstalling. Observed 2026-09-18: gems sat under `ruby/3.3` while the host had moved to 3.4, and every `rake` task failed with `Bundler::GemNotFound` until reinstalled.
 
 ## Common Mistakes
 
