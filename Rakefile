@@ -8,6 +8,7 @@ require 'date'
 require 'ostruct'
 require 'pathname'
 require 'set'
+require 'tmpdir'
 
 def in_portdir(&block)
   portdir = Pathname.new(Rake.original_dir)
@@ -148,11 +149,34 @@ task diff: :update_githead do |_, args|
     # which are then rewritten to the a/ and b/ the Porter's Handbook expects
     # a submitted diff to carry. git repeats one path on the "diff --git" line
     # for added and deleted files, so that line is normalised separately.
-    diff = IO.popen(['git', 'diff', '--no-index', '--no-prefix',
-                     tree_portdir.exist? ? tree_portdir.to_s : '/dev/null',
-                     portdir.to_s], err: %i(child out), &:read)
-      .gsub(%r{^(.*?)#{Regexp.escape(tree_portdir.to_s[1..])}/}) {"#{$1}a/#{rel_portdir}/"}
-      .gsub(%r{^(.*?)#{Regexp.escape(portdir.to_s[1..])}/}) {"#{$1}b/#{rel_portdir}/"}
+    #
+    # A new port has no directory in the tree, so it is diffed against an empty
+    # one. /dev/null will not do: given a file and a directory, git compares
+    # the file with the directory's entry of the same basename, a nonexistent
+    # <port>/null.
+    #
+    # --no-index reads both directories straight off disk and applies no
+    # exclude rules, so left to itself it would diff work directories, *.orig
+    # copies and anything else .gitignore keeps out of this repo. The files are
+    # therefore named as pathspecs: those git sees here, tracked or untracked
+    # but not ignored, plus everything in the tree's copy so that deletions
+    # still show. --literal-pathspecs keeps a file name from being read as a
+    # glob.
+    files = IO.popen(%w(git ls-files -z --cached --others --exclude-standard .), &:read).split("\0")
+    raise "git ls-files failed with status #{$?.exitstatus}" unless $?.success?
+    if tree_portdir.exist?
+      files |= tree_portdir.glob('**/*', File::FNM_DOTMATCH).select(&:file?).map {|file| file.relative_path_from(tree_portdir).to_s}
+    end
+    diff = Dir.mktmpdir do |empty|
+      IO.popen(['git', '--literal-pathspecs', 'diff', '--no-index', '--no-prefix',
+                tree_portdir.exist? ? tree_portdir.to_s : empty,
+                portdir.to_s, '--', *files], err: %i(child out), &:read)
+    end
+    # --no-index exits 1 when there are differences; above that is an error,
+    # whose message would otherwise be printed, or written out, as the diff.
+    raise "git diff failed with status #{$?.exitstatus}: #{diff}" if $?.exitstatus > 1
+    diff = diff.gsub("#{tree_portdir.to_s[1..]}/", "a/#{rel_portdir}/")
+      .gsub("#{portdir.to_s[1..]}/", "b/#{rel_portdir}/")
       .gsub(%r{^diff --git [ab]/(\S+) [ab]/(\S+)$}) {"diff --git a/#{$1} b/#{$2}"}
     if patch
       # PKGNAME depends on Mk/ -- PYTHON_PKGNAMEPREFIX and friends come from

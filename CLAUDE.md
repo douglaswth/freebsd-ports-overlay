@@ -154,7 +154,15 @@ there is nothing for CI to add.
 
   It uses `git diff --no-index` between the tree's copy of the port and this
   one, so nothing is copied into the ports tree and no `sudo` is involved. The
-  paths are rewritten to the `a/`/`b/` form a submitted diff carries.
+  paths are rewritten to the `a/`/`b/` form a submitted diff carries. A new
+  port is diffed against an empty directory, so every file comes out as added.
+
+  **It follows `.gitignore`, which `--no-index` alone does not** — that mode
+  reads both directories straight off disk with no exclude rules, so a leftover
+  `work-*` directory or a `.orig` copy from `rake makepatch` would land in the
+  patch. The task passes as pathspecs the files `git ls-files --cached
+  --others --exclude-standard` reports, plus the tree's own files so deletions
+  still show.
 
   **`git diff` in this repo does not answer the same question.** It compares
   against this repo's own history, so once a change is committed here it shows
