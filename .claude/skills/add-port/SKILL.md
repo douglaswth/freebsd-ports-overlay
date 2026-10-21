@@ -1,7 +1,7 @@
 ---
 name: add-port
 description: Create a new FreeBSD port from scratch in this overlay, test it, and submit it to Bugzilla as a new-port PR. Use when the user wants to package software that has no port yet.
-allowed-tools: Bash(bugzilla query *) Bash(bugzilla attach *) Bash(bugzilla new *) Bash(bugzilla modify *) Bash(portedit *) Bash(gh api *) Bash(fetch -qo - *) Bash(bundle exec rake *) Bash(make *) Bash(cp *) Bash(git *) Bash(grep *) Read Edit Write Grep Glob WebFetch WebSearch AskUserQuestion
+allowed-tools: Bash(bugzilla query *) Bash(bugzilla attach *) Bash(bugzilla new *) Bash(bugzilla modify *) Bash(portedit *) Bash(gh api *) Bash(fetch -qo - *) Bash(bundle exec rake *) Bash(make *) Bash(cp *) Bash(git *) Bash(grep *) Read Edit Write Grep Glob WebFetch WebSearch AskUserQuestion Agent
 ---
 
 # Add a New Port
@@ -230,7 +230,7 @@ Construct it against the real tree: read the category `Makefile` from upstream,
 insert the `SUBDIR +=` line in sorted position, and produce that hunk by hand as
 part of the patch.
 
-## Step 9: Lint, test, submit
+## Step 9: Lint and test
 
 ```sh
 bundle exec rake portlint     # -A here, the most thorough mode, since the port is new
@@ -256,6 +256,38 @@ Then:
 ```sh
 bundle exec rake 'diff[patch]'
 ```
+
+## Step 10: Independent review
+
+Once `testport` passes, and before anything goes to Bugzilla, dispatch a fresh
+reviewer with the `Agent` tool (`general-purpose`). You wrote the port; every
+check so far either ran a tool or ran past your own judgement. A reviewer with
+none of this session's context reads it the way a committer will.
+
+**Brief it with artifacts, not conclusions.** Give it the `<PKGNAME>.diff`
+path, the hand-built category `Makefile` hunk, the port directory, the upstream
+repository and release, and the Porter's Handbook at
+<https://docs.freebsd.org/en/books/porters-handbook/>. Do **not** give it your
+reasoning for choices — why this category, why no `USES=cpe`, why no
+completions. A justification in the brief is the reviewer adopting your blind
+spot instead of finding it; a choice that is right will survive being asked
+about.
+
+Ask it to:
+
+- read-only: no edits, no `rake` targets that need `sudo`, no Bugzilla writes;
+- check the diff against the handbook and against upstream's own sources
+  (`go.mod`/`Cargo.toml`, license file, release tag), citing the chapter or
+  file for every finding;
+- report what it checked and found sound as well as what it found wrong, so
+  silence on an area means "not examined", never "fine".
+
+**Its findings are claims, not verdicts.** Verify each against the source it
+cites before acting, and put the verified list in front of Douglas with what
+you propose for each. A change that touches the port reruns step 9 —
+`testport` included — before submission.
+
+## Step 11: Submit
 
 Submission title: `[NEW PORT] category/portname short description of the port`.
 Product "Ports & Packages", Component "Individual Port(s)". From the Problem
@@ -301,6 +333,9 @@ trailers — see this repo's `CLAUDE.md`.
 - **Listing `pkg-message` in `pkg-plist`.** It does not go there.
 - **Diffing a generated `configure`.** Set `USES=autoreconf` and patch
   `configure.ac`.
+- **Briefing the reviewer with your reasoning.** Step 10's reviewer gets the
+  diff and the sources, not why you chose what you chose — or it reviews your
+  argument instead of the port.
 - **Forgetting the category `Makefile` hunk.** `rake diff` cannot produce it, so
   nothing will remind you.
 - **Reading `go.mod` from a mirror.** Read it from the host upstream develops

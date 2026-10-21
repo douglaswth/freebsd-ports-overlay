@@ -1,7 +1,7 @@
 ---
 name: update-port
 description: Bump an existing FreeBSD port in this overlay to a new version, or deprecate one, then test and submit the patch to Bugzilla. Use when portscout reports a port out of date, when pkg-fallout reports a build failure, when a security advisory lands, or when the user asks to update a port.
-allowed-tools: Bash(bugzilla query *) Bash(bugzilla attach *) Bash(bugzilla new *) Bash(bugzilla modify *) Bash(portedit *) Bash(gh api *) Bash(fetch -qo - *) Bash(bundle exec rake *) Bash(make *) Bash(git *) Read Edit Write Grep Glob WebFetch WebSearch AskUserQuestion
+allowed-tools: Bash(bugzilla query *) Bash(bugzilla attach *) Bash(bugzilla new *) Bash(bugzilla modify *) Bash(portedit *) Bash(gh api *) Bash(fetch -qo - *) Bash(bundle exec rake *) Bash(make *) Bash(git *) Read Edit Write Grep Glob WebFetch WebSearch AskUserQuestion Agent
 ---
 
 # Update a Port
@@ -205,7 +205,38 @@ compares this working copy against the ports tree's copy with
 this repo's own history, so once a change is committed here it shows nothing,
 and it never shows what differs from what FreeBSD ships.
 
-## Step 10: Submit
+## Step 10: Independent review
+
+Once `testport` passes, and before anything goes to Bugzilla, dispatch a fresh
+reviewer with the `Agent` tool (`general-purpose`). Every check so far either
+ran a tool or ran past your own judgement; a reviewer with none of this
+session's context reads the diff the way a committer will.
+
+**Brief it with artifacts, not conclusions.** Give it the `<PKGNAME>.diff`
+path, the port directory, the old and new versions, upstream's release notes
+or changelog for that range, the trigger (portscout mail, pkg-fallout log,
+advisory id), and the Porter's Handbook at
+<https://docs.freebsd.org/en/books/porters-handbook/>. Do **not** give it your
+reasoning — why no `UPDATING` entry, why a patch stays, why `PORTREVISION` went
+the way it did. A justification in the brief is the reviewer adopting your
+blind spot instead of finding it.
+
+Ask it to:
+
+- read-only: no edits, no `rake` targets that need `sudo`, no Bugzilla writes;
+- check the diff against the release notes (behaviour changes needing
+  `UPDATING`, moved requirement floors, `files/patch-*` made redundant), against
+  the handbook, and — for a security update — against the three deliverables
+  below, citing the chapter or source for every finding;
+- report what it checked and found sound as well as what it found wrong, so
+  silence on an area means "not examined", never "fine".
+
+**Its findings are claims, not verdicts.** Verify each against the source it
+cites before acting, and put the verified list in front of Douglas with what
+you propose for each. A change that touches the port reruns steps 6 to 9 —
+`testport` included — before submission.
+
+## Step 11: Submit
 
 Title: `category/portname: Update to X.Y`, or `category/portname: add FOO
 option` for an option change. Product "Ports & Packages", Component "Individual
@@ -309,6 +340,9 @@ commits mirrored in need `CI: no`; your own changes want the build, and
   disagree by weeks of commits.
 - **Treating a clean `pkg audit` as evidence a package is safe.** It reports
   what the local VuXML copy knows; the copy lags, and the entry may not exist.
+- **Briefing the reviewer with your reasoning.** Step 10's reviewer gets the
+  diff and the sources, not why you chose what you chose — or it reviews your
+  argument instead of the port.
 - **Using `git diff` to produce the submission diff.** `rake diff[patch]` is the
   one that answers what a PR asks.
 - **Building a conclusion from output sliced with `head`/`tail`.** And an empty
