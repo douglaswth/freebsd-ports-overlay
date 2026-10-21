@@ -149,23 +149,29 @@ say so and let the user pick the order — a security-motivated update outranks 
 routine version bump, and a `maintainer-feedback?` someone is actively waiting
 on outranks both.
 
-## Step 5: Marking read stays coupled to having acted
+## Step 5: Marking read
 
 This is the one mail mutation with a FreeBSD-specific rule, which is why it is
 here rather than left entirely to the mail tooling.
 
-**portscout will not re-notify.** Its mail says so in terms: *"You will not be
-e-mailed again for any of the port/version combinations below."* So a portscout
-message marked read without the bump done loses the only notification that bump
-will ever get. Leave it unread until the work is done.
+**portscout's mail is a notice, not the queue — the queue is the maintainer's
+portscout page.** The mail says it will not repeat itself (*"You will not be
+e-mailed again for any of the port/version combinations below"*), but portscout
+keeps every outdated port listed at
+`https://portscout.freebsd.org/<maintainer-email>.html` with its current and new
+version until the port is updated, and it never sees the mailbox, so a message's
+read state changes nothing on its side. When portscout mail arrives, read that
+page, not only the mail: it carries ports the mail did not mention, and it is
+what tells you whether a bump is still owed. Whether to keep a portscout message
+unread as a personal reminder is the maintainer's choice, not an obligation.
 
 The rest divides cleanly:
 
 - **Safe to mark read**: residue (flags on closed bugs), CC'd-for-information
-  mail, and anything whose work is finished. None of these carries an obligation.
-- **Leave unread**: portscout nags not yet acted on, and any
-  `maintainer-feedback?`/`maintainer-approval?` genuinely requested of the
-  maintainer and not yet answered.
+  mail, anything whose work is finished, and portscout mail once its ports are on
+  the page.
+- **Leave unread**: any `maintainer-feedback?`/`maintainer-approval?` genuinely
+  requested of the maintainer and not yet answered.
 
 Hand the mail tooling the exact set you enumerated and summarised — never a
 range or a predicate — and let its own confirmation gate run.
@@ -178,8 +184,9 @@ range or a predicate — and let its own confirmation gate run.
   maintainer.** Read the requestee.
 - **Treating the weekly digest as the queue.** It misses anything that opens and
   closes inside a week, and it only ever lists open reports.
-- **Marking portscout mail read without the update done.** It will not fire
-  again for that version.
+- **Treating the portscout mail as the queue.** The maintainer page lists every
+  outdated port, including ones no mail mentioned; the mail is only the first
+  notice.
 - **Concluding from `bugzilla query --full` that a bug has no discussion.** It
   prints no comments at all — use the REST comment endpoint.
 - **Concluding a thread does not exist because it is not in the FreeBSD mail.**
