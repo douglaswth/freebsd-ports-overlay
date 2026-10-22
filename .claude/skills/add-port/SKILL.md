@@ -302,6 +302,26 @@ against nothing; if they differ, find out why before going on. The category
 `Makefile` line is not in this repo, so its hunk is not in the commit: include
 it in the submission and say so in the description.
 
+**Then push, and wait for caronade before drafting anything.** The push builds
+the commit on every queue in `default_queues`; `CI: yes` in the message forces
+every queue, including the emulated jails a default push never touches. Each
+port in the commit becomes a caronade job, whose page is
+`https://caronade.douglasthrift.net/builds/<job id>/`, with the full logs.
+
+**Poll the job's JSON, not Gitea's commit statuses.**
+`https://caronade.douglasthrift.net/logs/<job id>/jobdata.v1.json` lists every
+queue the job was given under `Build`, each with a `Status` of `waiting`,
+`building`, `success` or `failure`. Gitea only ever shows the finished ones:
+caronade posts `building` when a queue starts, which is not a state Gitea's
+API accepts, and never checks the response, so the rejection is silent. A
+queue that crashes caronade's worker is marked `failure` in the JSON and posts
+nothing to Gitea at all. Gitea is still where the job id comes from — the
+first finished status (`portlint` takes seconds) links to the job page in its
+`target_url`. Watch with a background loop until no queue is `waiting` or
+`building`. Do not draft the report until every queue has passed. A failure is
+a change like any other — fix it, and the port goes back through steps 9 and
+10.
+
 Submission title: `[NEW PORT] category/portname short description of the port`.
 Product "Ports & Packages", Component "Individual Port(s)". From the Problem
 Reports article: attachment not inline, MIME type `text/plain`, never

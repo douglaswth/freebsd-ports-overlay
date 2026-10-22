@@ -170,10 +170,7 @@ testing and cleans up automatically on exit, `-I` is the one that **leaves** the
 jail running for `jexec`, and `-c` runs `make config` for the port first. Where options alter `pkg-plist`, the chapter asks for a run with all
 options selected and one with all deselected.
 
-**Then the full matrix, once local tests pass.** Push with `CI: yes` in the
-commit message, which forces every caronade queue rather than the two in
-`default_queues` — that sweeps `14.4/arm64`, which a default push never touches.
-Claude can drive and wait on that end to end.
+**Then the full matrix, on caronade** — after the commit, in step 11.
 
 A note on which jails *should* exist, since the answer is in `Mk/` rather than
 folklore — and this is a live demonstration of why a `Mk/` claim must name its
@@ -253,6 +250,26 @@ only if this port was in sync with the tree before the change. If they differ,
 the port here was behind or ahead of the tree — mirror the missing upstream
 commits first (see this repo's `CLAUDE.md`) rather than submitting a patch
 that will not apply.
+
+**Then push, and wait for caronade before drafting anything.** The push builds
+the commit on every queue in `default_queues`; `CI: yes` in the message forces
+every queue, including the emulated jails a default push never touches. Each
+port in the commit becomes a caronade job, whose page is
+`https://caronade.douglasthrift.net/builds/<job id>/`, with the full logs.
+
+**Poll the job's JSON, not Gitea's commit statuses.**
+`https://caronade.douglasthrift.net/logs/<job id>/jobdata.v1.json` lists every
+queue the job was given under `Build`, each with a `Status` of `waiting`,
+`building`, `success` or `failure`. Gitea only ever shows the finished ones:
+caronade posts `building` when a queue starts, which is not a state Gitea's
+API accepts, and never checks the response, so the rejection is silent. A
+queue that crashes caronade's worker is marked `failure` in the JSON and posts
+nothing to Gitea at all. Gitea is still where the job id comes from — the
+first finished status (`portlint` takes seconds) links to the job page in its
+`target_url`. Watch with a background loop until no queue is `waiting` or
+`building`. Do not draft the report until every queue has passed. A failure is
+a change like any other — fix it, and the port goes back through steps 9 and
+10.
 
 Title: `category/portname: Update to X.Y`, or `category/portname: add FOO
 option` for an option change. Product "Ports & Packages", Component "Individual
