@@ -1,0 +1,14 @@
+Google Workspace CLI — one command-line tool for Drive, Gmail, Calendar,
+Sheets, Docs, Chat, Admin, and more. Dynamically built from Google Discovery
+Service.
+
+gws doesn't ship a static list of commands. It reads Google's own Discovery
+Service at runtime and builds its entire command surface dynamically. When
+Google Workspace adds an API endpoint or method, gws picks it up
+automatically.
+
+Using it requires a Google account and a Google Cloud project with OAuth
+credentials. The gws auth setup command can create these using gcloud from
+net/google-cloud-sdk.
+
+This is not an officially supported Google product.
