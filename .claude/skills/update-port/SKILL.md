@@ -234,9 +234,25 @@ Ask it to:
 **Its findings are claims, not verdicts.** Verify each against the source it
 cites before acting, and put the verified list in front of Douglas with what
 you propose for each. A change that touches the port reruns steps 6 to 9 —
-`testport` included — before submission.
+`testport` included — **and then this step**, with a fresh reviewer and a
+freshly written diff, before submission. A changed patch, a bumped dependency
+or a rewritten `UPDATING` entry is exactly the kind of choice the earlier
+reviewer never saw; passing lint and `testport` says nothing about whether it
+is right.
 
 ## Step 11: Submit
+
+**Commit first, then submit.** Once Douglas has seen the verified review and
+the change is final, commit it here — `git format-patch` needs a commit, and
+the attachment is generated from it, not from the working tree. Generate it
+with `git format-patch -1 --stdout <commit>` into the session scratchpad, not
+the repo root, where `.gitignore` covers `*.diff` but not `*.patch`. **Compare it
+with step 9's `rake diff[patch]` before attaching.** The commit diffs against
+this repo's previous state, `rake diff` against what FreeBSD ships; they agree
+only if this port was in sync with the tree before the change. If they differ,
+the port here was behind or ahead of the tree — mirror the missing upstream
+commits first (see this repo's `CLAUDE.md`) rather than submitting a patch
+that will not apply.
 
 Title: `category/portname: Update to X.Y`, or `category/portname: add FOO
 option` for an option change. Product "Ports & Packages", Component "Individual

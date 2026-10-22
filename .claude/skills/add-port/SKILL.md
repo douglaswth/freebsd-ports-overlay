@@ -285,9 +285,22 @@ Ask it to:
 **Its findings are claims, not verdicts.** Verify each against the source it
 cites before acting, and put the verified list in front of Douglas with what
 you propose for each. A change that touches the port reruns step 9 —
-`testport` included — before submission.
+`testport` included — **and then this step**, with a fresh reviewer and a
+freshly written diff, before submission. A rename, a moved `SUBDIR` line or a
+rewritten `pkg-descr` is exactly the kind of choice the earlier reviewer never
+saw; passing lint and `testport` says nothing about whether it is right.
 
 ## Step 11: Submit
+
+**Commit first, then submit.** Once Douglas has seen the verified review and
+the port is final, commit it here — `git format-patch` needs a commit, and the
+attachment is generated from it, not from the working tree. Generate it with
+`git format-patch -1 --stdout <commit>` into the session scratchpad, not the
+repo root, where `.gitignore` covers `*.diff` but not `*.patch`. For a new port
+it must carry the same files and lines as `rake diff[patch]`, since both diff
+against nothing; if they differ, find out why before going on. The category
+`Makefile` line is not in this repo, so its hunk is not in the commit: include
+it in the submission and say so in the description.
 
 Submission title: `[NEW PORT] category/portname short description of the port`.
 Product "Ports & Packages", Component "Individual Port(s)". From the Problem
