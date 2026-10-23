@@ -170,6 +170,30 @@ testing and cleans up automatically on exit, `-I` is the one that **leaves** the
 jail running for `jexec`, and `-c` runs `make config` for the port first. Where options alter `pkg-plist`, the chapter asks for a run with all
 options selected and one with all deselected.
 
+**When a build runs long, read poudriere's log for the package that is
+building** — whether it is `rake testport` or caronade (step 11), and whether
+that package is the port or one of its dependencies. A background loop says
+nothing until the end. caronade's job log carries the port's own build as it
+happens, but for a dependency only a `Building <origin> | <pkgname>` line and
+later a `Finished` line; that `<pkgname>` names the log to read. `rake testport`
+shows you no output at all, so read the most recently modified log. Where
+poudriere's logs are readable, each package's own log is
+`/usr/local/poudriere/data/logs/bulk/<jail>-<tree>/latest/logs/<pkgname>.log`.
+For `rake testport`, `<tree>` is `githead`; for caronade, the `Logs:` line near
+the top of its job log names the run directory, and the package logs are in
+its `logs/` subdirectory. Every package poudriere builds has `<phase: …>`
+markers saying which phase its build is in (`build`, `stage`, `package`; the
+port under test adds `install` and `deinstall`), and the log's modification time says
+whether it is still writing. Once in `package`, the log writes nothing more
+until it is done, so a long quiet spell there is normal.
+
+To estimate how long a dependency will take — before setting any limit on a
+background loop — look up its `build time:` line in earlier logs from the same
+jail, `/usr/local/poudriere/data/logs/bulk/<jail>-*/2*/logs/<portname>-[0-9]*.log`;
+the name carries the version, so the glob also finds builds of earlier ones.
+Skip any log ending in `!!! build failure encountered !!!`: a failed run's
+time is how long it took to fail.
+
 **Then the full matrix, on caronade** — after the commit, in step 11.
 
 A note on which jails *should* exist, since the answer is in `Mk/` rather than
@@ -268,8 +292,11 @@ nothing to Gitea at all. Gitea is still where the job id comes from — the
 first finished status (`portlint` takes seconds) links to the job page in its
 `target_url`. Watch with a background loop until no queue is `waiting` or
 `building`. Do not draft the report until every queue has passed. A failure is
-a change like any other — fix it, and the port goes back through steps 9 and
+a change like any other — fix it, and the port goes back through steps 6 to
 10.
+
+A build that runs long is followed from poudriere's log for the package that
+is building, as in step 8.
 
 Title: `category/portname: Update to X.Y`, or `category/portname: add FOO
 option` for an option change. Product "Ports & Packages", Component "Individual
