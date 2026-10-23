@@ -135,49 +135,102 @@ task :portfmt do
   end
 end
 
-desc 'Show the port differences against the ports tree'
+def git_output(*command, env: {})
+  output = IO.popen(env, ['git', *command], err: %i(child out), &:read)
+  raise "#{['git', *command].join(' ')} failed with status #{$?.exitstatus}: #{output}" unless $?.success?
+  output
+end
+
+desc 'Show the port differences against the ports tree, or write them as a patch'
 task diff: :update_githead do |_, args|
-  patch = args.extras.find {|arg| arg == 'patch'}
-  tree = args.extras.find {|arg| arg != 'patch'} || 'githead'
+  patch = args.extras.include?('patch')
+  others = args.extras - ['patch']
+  tree = others.find {|arg| portstree_map.key?(arg.to_sym)} || 'githead'
+  commits = others - [tree]
+  raise "unexpected arguments: #{commits.join(', ')}" if commits.size > 1
+  commit = commits.first
   portstree = portstree_map[tree.to_sym] or raise "no such portstree: #{tree}"
   in_portdir do |portdir|
     rel_portdir = portdir.relative_path_from(portsdir)
     tree_portdir = portstree.path.join(rel_portdir)
-    # git diff --no-index compares two directories without either being a
-    # repository, so nothing is copied into the ports tree and no root is
-    # needed. --no-prefix drops the leading slash from both absolute paths,
-    # which are then rewritten to the a/ and b/ the Porter's Handbook expects
-    # a submitted diff to carry. git repeats one path on the "diff --git" line
-    # for added and deleted files, so that line is normalised separately.
-    #
-    # A new port has no directory in the tree, so it is diffed against an empty
-    # one. /dev/null will not do: given a file and a directory, git compares
-    # the file with the directory's entry of the same basename, a nonexistent
-    # <port>/null.
-    #
-    # --no-index reads both directories straight off disk and applies no
-    # exclude rules, so left to itself it would diff work directories, *.orig
-    # copies and anything else .gitignore keeps out of this repo. The files are
-    # therefore named as pathspecs: those git sees here, tracked or untracked
-    # but not ignored, plus everything in the tree's copy so that deletions
-    # still show. --literal-pathspecs keeps a file name from being read as a
-    # glob.
-    files = IO.popen(%w(git ls-files -z --cached --others --exclude-standard .), &:read).split("\0")
-    raise "git ls-files failed with status #{$?.exitstatus}" unless $?.success?
-    if tree_portdir.exist?
-      files |= tree_portdir.glob('**/*', File::FNM_DOTMATCH).select(&:file?).map {|file| file.relative_path_from(tree_portdir).to_s}
+    new_port = !tree_portdir.exist?
+
+    # The patch carries the mail header of a commit here -- its author, date
+    # and message -- so the diff below it has to be what that commit holds.
+    # Anything not yet committed would make the two disagree, so the patch is
+    # refused and the diff is shown without a header.
+    clean = git_output('status', '--porcelain', '--', '.').empty?
+    raise "#{rel_portdir} has uncommitted changes; commit them first" if patch && !clean
+    if clean
+      commit ||= git_output('log', '-1', '--format=%H', '--', '.').chomp
+      raise "#{rel_portdir} has no commits" if patch && commit.empty?
+    else
+      $stderr.puts "#{rel_portdir} has uncommitted changes, so the diff has no mail header"
+      commit = nil
     end
-    diff = Dir.mktmpdir do |empty|
-      IO.popen(['git', '--literal-pathspecs', 'diff', '--no-index', '--no-prefix',
-                tree_portdir.exist? ? tree_portdir.to_s : empty,
-                portdir.to_s, '--', *files], err: %i(child out), &:read)
+
+    # Color follows git's own color.diff and color.ui settings, as for a
+    # terminal when this task's output is one; a written patch never has it.
+    color = !patch && git_output('config', '--get-colorbool', 'color.diff', $stdout.tty?.to_s).chomp == 'true'
+
+    # The files compared are those git sees here, tracked or untracked but not
+    # ignored, so work directories and *.orig copies stay out; and everything
+    # in the tree's copy, so that deletions still show. A tracked file deleted
+    # but not yet committed is still listed, so only those on disk are kept.
+    files = git_output('ls-files', '-z', '--cached', '--others', '--exclude-standard', '.').split("\0")
+      .select {|file| File.exist?(file) || File.symlink?(file)}
+    tree_files = new_port ? [] : tree_portdir.glob('**/*', File::FNM_DOTMATCH).select(&:file?).map {|file| file.relative_path_from(tree_portdir).to_s}
+
+    # A new port also needs its SUBDIR line in the category Makefile, which is
+    # not in this repo. The lines are in byte order, so it goes before the
+    # first entry that sorts after it.
+    category_makefile = rel_portdir.dirname.join('Makefile')
+    if new_port
+      name = rel_portdir.basename.to_s
+      lines = portstree.path.join(category_makefile).readlines
+      entry = "    SUBDIR += #{name}\n"
+      unless lines.include?(entry)
+        subdirs = lines.each_index.select {|i| lines[i].start_with?('    SUBDIR += ')}
+        index = subdirs.find {|i| lines[i].split.last > name} || subdirs.last + 1
+        lines.insert(index, entry)
+      end
     end
-    # --no-index exits 1 when there are differences; above that is an error,
-    # whose message would otherwise be printed, or written out, as the diff.
-    raise "git diff failed with status #{$?.exitstatus}: #{diff}" if $?.exitstatus > 1
-    diff = diff.gsub("#{tree_portdir.to_s[1..]}/", "a/#{rel_portdir}/")
-      .gsub("#{portdir.to_s[1..]}/", "b/#{rel_portdir}/")
-      .gsub(%r{^diff --git [ab]/(\S+) [ab]/(\S+)$}) {"diff --git a/#{$1} b/#{$2}"}
+
+    # Each side is added from where it sits on disk into its own index in a
+    # throwaway repository, so git records file modes and symlinks itself and
+    # nothing is copied into the ports tree. Diffing the two trees is what git
+    # format-patch does, so --stat=72 --summary reproduces its diffstat
+    # exactly, which git diff --no-index cannot: its paths are the absolute
+    # ones, and the stat abbreviates them.
+    diff = Dir.mktmpdir do |tmpdir|
+      git_dir = "--git-dir=#{tmpdir}/repo"
+      git_output('init', '-q', '--bare', "#{tmpdir}/repo")
+      tree_side, port_side = [[portstree.path, tree_files], [portsdir, files]].map.with_index do |(root, paths), side|
+        env = {'GIT_INDEX_FILE' => "#{tmpdir}/index#{side}"}
+        paths = paths.map {|path| rel_portdir.join(path).to_s}
+        paths << category_makefile.to_s if new_port && side == 0
+        git_output('-C', root.to_s, '--literal-pathspecs', git_dir, "--work-tree=#{root}", 'add', '-f', '--', *paths, env: env) unless paths.empty?
+        if new_port && side == 1
+          makefile = Pathname.new(tmpdir).join('Makefile')
+          makefile.write(lines.join)
+          blob = git_output(git_dir, 'hash-object', '-w', makefile.to_s).chomp
+          git_output(git_dir, 'update-index', '--add', '--cacheinfo', "100644,#{blob},#{category_makefile}", env: env)
+        end
+        git_output(git_dir, 'write-tree', env: env).chomp
+      end
+      git_output(git_dir, 'diff', "--color=#{color ? 'always' : 'never'}", '--stat=72', '--summary', '-p', '--src-prefix=a/', '--dst-prefix=b/', tree_side, port_side)
+    end
+
+    # The header and signature come from git format-patch itself, so the MIME
+    # headers, the [PATCH] subject and the git version match what it would
+    # have written.
+    if commit && !commit.empty? && !diff.empty?
+      email = git_output('format-patch', '-1', '--stdout', commit)
+      header = email[/\A.*?^---\n/m] or raise "no --- line in git format-patch output for #{commit}"
+      signature = email[/^-- \n.*\z/m] or raise "no signature in git format-patch output for #{commit}"
+      diff = header + diff + signature
+    end
+
     if patch
       # PKGNAME depends on Mk/ -- PYTHON_PKGNAMEPREFIX and friends come from
       # there -- so resolve it against the same tree being diffed against
@@ -187,7 +240,7 @@ task diff: :update_githead do |_, args|
       file.write(diff)
       puts "wrote #{file}"
     else
-      puts diff
+      print diff
     end
   end
 end

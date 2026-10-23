@@ -215,12 +215,12 @@ branch" goal is unmet. Surface that; do not quietly skip it.
 ## Step 9: Produce the diff
 
 ```sh
-bundle exec rake 'diff[patch]'
+bundle exec rake diff > <scratchpad>/<portname>.diff
 ```
 
-That writes `<PKGNAME>.diff` at the repo root, which `.gitignore` covers. It
-compares this working copy against the ports tree's copy with
-`git diff --no-index`, rewritten to the `a/`/`b/` form a submitted diff carries.
+That compares this working copy against the ports tree's copy, and goes into
+the session scratchpad for review. `rake diff[patch]` is for the attachment,
+after the commit (step 11), and refuses to run before it.
 
 **`git diff` in this repo answers a different question** — it compares against
 this repo's own history, so once a change is committed here it shows nothing,
@@ -233,8 +233,8 @@ reviewer with the `Agent` tool (`general-purpose`). Every check so far either
 ran a tool or ran past your own judgement; a reviewer with none of this
 session's context reads the diff the way a committer will.
 
-**Brief it with artifacts, not conclusions.** Give it the `<PKGNAME>.diff`
-path, the port directory, the old and new versions, upstream's release notes
+**Brief it with artifacts, not conclusions.** Give it the diff's path, the
+port directory, the old and new versions, upstream's release notes
 or changelog for that range, the trigger (portscout mail, pkg-fallout log,
 advisory id), and the Porter's Handbook at
 <https://docs.freebsd.org/en/books/porters-handbook/>. Do **not** give it your
@@ -264,16 +264,16 @@ is right.
 ## Step 11: Submit
 
 **Commit first, then submit.** Once Douglas has seen the verified review and
-the change is final, commit it here — `git format-patch` needs a commit, and
-the attachment is generated from it, not from the working tree. Generate it
-with `git format-patch -1 --stdout <commit>` into the session scratchpad, not
-the repo root, where `.gitignore` covers `*.diff` but not `*.patch`. **Compare it
-with step 9's `rake diff[patch]` before attaching.** The commit diffs against
-this repo's previous state, `rake diff` against what FreeBSD ships; they agree
-only if this port was in sync with the tree before the change. If they differ,
-the port here was behind or ahead of the tree — mirror the missing upstream
-commits first (see this repo's `CLAUDE.md`) rather than submitting a patch
-that will not apply.
+the change is final, commit it here — the attachment carries the commit's
+author, date and message. Generate it with `rake diff[patch]`, which writes
+`<PKGNAME>.diff` at the repo root in the form `git format-patch` gives, so a
+committer can `git am` it. It refuses to run while the port has uncommitted
+changes. **Check its diffstat before attaching:** it diffs against what
+FreeBSD ships, so a file this change did not touch means the port here was
+behind or ahead of the tree — mirror the missing upstream commits first (see
+this repo's `CLAUDE.md`) rather than submitting a patch that undoes them. If
+the change spans more than one commit here, `rake 'diff[patch,<commit>]'`
+takes the header from the one named.
 
 **Then push, and wait for caronade before drafting anything.** The push builds
 the commit on every queue in `default_queues`; `CI: yes` in the message forces

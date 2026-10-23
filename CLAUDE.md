@@ -147,22 +147,39 @@ there is nothing for CI to add.
   page has said EXPERIMENTAL since 2018-03-08, and `write_usock` is `nc -U` with
   a heredoc that never reads a reply — so you get no build output, which is most
   of what `testport` is for.
-- `rake diff[tree,patch]` — what this port changes relative to the ports tree,
-  which is what a PR attaches. Defaults to `githead`; `rake diff[default]` uses
-  `/usr/ports`. `rake diff[patch]` writes `<PKGNAME>.diff` at the repo root,
-  which `.gitignore` covers.
+- `rake diff[tree,patch,commit]` — what this port changes relative to the ports
+  tree, which is what a PR attaches. Defaults to `githead`; `rake diff[default]`
+  uses `/usr/ports`. For a new port it includes the port's `SUBDIR` line in the
+  category Makefile, inserted in byte order, which is how 59 of the 62 category
+  Makefiles were sorted when this was written.
 
-  It uses `git diff --no-index` between the tree's copy of the port and this
-  one, so nothing is copied into the ports tree and no `sudo` is involved. The
-  paths are rewritten to the `a/`/`b/` form a submitted diff carries. A new
-  port is diffed against an empty directory, so every file comes out as added.
+  The output is in exactly the form `git format-patch` would give: the mail
+  header of the latest commit touching the port (author, date, message), the
+  diffstat, the diff, and the git version signature. So it applies with
+  `git am` and keeps the author. A `commit` argument names a different commit
+  for the header, for when the change spans several here. While the port has
+  uncommitted changes the header would describe a commit the diff does not
+  match, so `rake diff` leaves it out and says so on stderr.
 
-  **It follows `.gitignore`, which `--no-index` alone does not** — that mode
-  reads both directories straight off disk with no exclude rules, so a leftover
-  `work-*` directory or a `.orig` copy from `rake makepatch` would land in the
-  patch. The task passes as pathspecs the files `git ls-files --cached
-  --others --exclude-standard` reports, plus the tree's own files so deletions
-  still show.
+  `rake diff[patch]` writes that to `<PKGNAME>.diff` at the repo root, which
+  `.gitignore` covers, and refuses to run while the port has uncommitted
+  changes. Plain `rake diff` prints it, colored the way `git diff` would be —
+  git's own `color.diff`/`color.ui` decide, via `git config --get-colorbool`,
+  since git itself only ever sees the task's pipe.
+
+  Both sides are added with `git add` from where they sit on disk into separate
+  indexes of a throwaway repository in a temp directory, and the two trees are
+  diffed — the same code path format-patch uses, so `--stat=72 --summary`
+  reproduces its diffstat byte for byte. Nothing is copied into the ports tree,
+  nothing is committed, and no `sudo` is involved. Because git reads the files
+  itself, file modes and symlinks come through. `git diff --no-index`, which
+  this replaced, cannot produce the diffstat: its paths are absolute, and the
+  stat abbreviates them.
+
+  **It follows `.gitignore`** — a leftover `work-*` directory or a `.orig` copy
+  from `rake makepatch` stays out of the patch. The files compared are those
+  `git ls-files --cached --others --exclude-standard` reports, plus all of the
+  tree's own files so deletions still show.
 
   **`git diff` in this repo does not answer the same question.** It compares
   against this repo's own history, so once a change is committed here it shows

@@ -225,10 +225,9 @@ the category's Makefile"*, which only follows if the entry is expected in the
 submission, and new ports from outside submitters carry it in the same commit —
 `net/libmodbus` (`6479175b5`) and `mail/tarpitd` (`5cc52bcf7`) both do.
 
-`rake diff` compares a port **directory**, so it can never generate that hunk.
-Construct it against the real tree: read the category `Makefile` from upstream,
-insert the `SUBDIR +=` line in sorted position, and produce that hunk by hand as
-part of the patch.
+`rake diff` adds that hunk itself for any port the tree does not have yet,
+inserting the `SUBDIR +=` line into the tree's category `Makefile` in byte
+order. Check that it is there, in the right place, when you read the diff.
 
 ## Step 9: Lint and test
 
@@ -275,10 +274,12 @@ the name carries the version, so the glob also finds builds of earlier ones.
 Skip any log ending in `!!! build failure encountered !!!`: a failed run's
 time is how long it took to fail.
 
-Once `testport` passes:
+Once `testport` passes, write the diff for review into the session scratchpad.
+`rake diff[patch]` is for the attachment, after the commit (step 11), and
+refuses to run before it:
 
 ```sh
-bundle exec rake 'diff[patch]'
+bundle exec rake diff > <scratchpad>/<portname>.diff
 ```
 
 ## Step 10: Independent review
@@ -288,8 +289,8 @@ reviewer with the `Agent` tool (`general-purpose`). You wrote the port; every
 check so far either ran a tool or ran past your own judgement. A reviewer with
 none of this session's context reads it the way a committer will.
 
-**Brief it with artifacts, not conclusions.** Give it the `<PKGNAME>.diff`
-path, the hand-built category `Makefile` hunk, the port directory, the upstream
+**Brief it with artifacts, not conclusions.** Give it the diff's path, the port
+directory, the upstream
 repository and release, and the Porter's Handbook at
 <https://docs.freebsd.org/en/books/porters-handbook/>. Do **not** give it your
 reasoning for choices — why this category, why no `USES=cpe`, why no
@@ -317,14 +318,12 @@ saw; passing lint and `testport` says nothing about whether it is right.
 ## Step 11: Submit
 
 **Commit first, then submit.** Once Douglas has seen the verified review and
-the port is final, commit it here — `git format-patch` needs a commit, and the
-attachment is generated from it, not from the working tree. Generate it with
-`git format-patch -1 --stdout <commit>` into the session scratchpad, not the
-repo root, where `.gitignore` covers `*.diff` but not `*.patch`. For a new port
-it must carry the same files and lines as `rake diff[patch]`, since both diff
-against nothing; if they differ, find out why before going on. The category
-`Makefile` line is not in this repo, so its hunk is not in the commit: include
-it in the submission and say so in the description.
+the port is final, commit it here — the attachment carries the commit's
+author, date and message. Generate it with `rake diff[patch]`, which writes
+`<PKGNAME>.diff` at the repo root in the form `git format-patch` gives, with
+the category `Makefile` hunk included, so a committer can `git am` it. It
+refuses to run while the port has uncommitted changes. Name the category
+`Makefile` change in the description along with the added files.
 
 **Then push, and wait for caronade before drafting anything.** The push builds
 the commit on every queue in `default_queues`; `CI: yes` in the message forces
@@ -396,8 +395,9 @@ trailers — see this repo's `CLAUDE.md`.
 - **Briefing the reviewer with your reasoning.** Step 10's reviewer gets the
   diff and the sources, not why you chose what you chose — or it reviews your
   argument instead of the port.
-- **Forgetting the category `Makefile` hunk.** `rake diff` cannot produce it, so
-  nothing will remind you.
+- **Attaching `git format-patch` output.** The commit cannot carry the category
+  `Makefile` hunk, since that file is not in this repo; `rake diff[patch]` adds
+  it.
 - **Reading `go.mod` from a mirror.** Read it from the host upstream develops
   on.
 - **Taking `porting-samplem` as a template.** Read it for the callouts; its
