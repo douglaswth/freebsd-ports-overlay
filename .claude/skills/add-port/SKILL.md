@@ -322,8 +322,7 @@ the port is final, commit it here — the attachment carries the commit's
 author, date and message. Generate it with `rake diff[patch]`, which writes
 `<PKGNAME>.diff` at the repo root in the form `git format-patch` gives, with
 the category `Makefile` hunk included, so a committer can `git am` it. It
-refuses to run while the port has uncommitted changes. Name the category
-`Makefile` change in the description along with the added files.
+refuses to run while the port has uncommitted changes.
 
 **Then push, and wait for caronade before drafting anything.** The push builds
 the commit on every queue in `default_queues`; `CI: yes` in the message forces
@@ -352,8 +351,31 @@ Submission title: `[NEW PORT] category/portname short description of the port`.
 Product "Ports & Packages", Component "Individual Port(s)". From the Problem
 Reports article: attachment not inline, MIME type `text/plain`, never
 `quoted-printable`, `git format-patch` preferred so a committer can `git am` and
-credit correctly, severity honest, **added files named explicitly** since git
-needs them named at commit time, and no compression.
+credit correctly, severity honest, and no compression.
+
+**The description is short.** The handbook's "Submitting the New Port" asks
+for *"a short description of the program"*, perhaps a short version of
+`COMMENT`, and nothing else. Do not list the added files: that request is the
+`upgrading` chapter's, for updates, and its reason — git needs them named at
+commit time — does not survive `git am`, which adds them itself, while the
+patch's own diffstat already names them. Do not say who will maintain it;
+`MAINTAINER` says so. Douglas's own new-port PRs (bugs 217908, 217910, 217912)
+take this form:
+
+```
+Added dns/rubygem-simpleidn [1].
+
+"SimpleIDN allows easy conversion from punycode ACE (IDNA) strings to
+unicode UTF-8 strings and visa versa."
+
+[1] https://github.com/mmriis/simpleidn
+
+portlint: OK (looks fine.)
+testport: OK (poudriere: 103i386, 103amd64)
+```
+
+The quoted line is upstream's own description, and the testport line names the
+jails it ran on. Their attachment descriptions were the patch's file name.
 
 ```sh
 bugzilla attach --type text/plain --field is_patch=1 \
