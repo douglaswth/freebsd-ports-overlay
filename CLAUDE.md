@@ -22,6 +22,14 @@ upstream commit being mirrored:
     Approved by:	Douglas Thrift <douglas@douglasthrift.net> (maintainer)
     Approved by:	portmgr (blanket)
 
+## Referring to bugs and attachments
+
+**In anything written to Douglas, a Bugzilla bug or attachment is a Markdown
+link, not a bare number** — `[bug 299978](https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=299978)`,
+`[attachment 276374](https://bugs.freebsd.org/bugzilla/attachment.cgi?id=276374)`.
+Not in Bugzilla comments themselves, which render as plain text: there the
+number alone is the convention, and Bugzilla links it.
+
 ## Mirroring upstream commits
 
 Upstream changes are brought in with `git am`, not by hand-editing, so the

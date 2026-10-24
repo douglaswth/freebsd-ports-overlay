@@ -377,13 +377,36 @@ testport: OK (poudriere: 103i386, 103amd64)
 The quoted line is upstream's own description, and the testport line names the
 jails it ran on. Their attachment descriptions were the patch's file name.
 
+Bugzilla's create-bug API takes no attachment, so `bugzilla new` files the bug
+and the patch follows in a second call, arriving as comment 1 rather than
+inside comment 0 as the web form puts it.
+
 ```sh
 bugzilla attach --type text/plain --field is_patch=1 \
-  --description '<summary>' --file <file> <bug>
+  --description '<summary>' --file <file> <bug> < <file>
 ```
+
+**Feed the file on stdin as well as naming it.** Whenever stdin is not a
+terminal — and under the `Bash` tool it never is — the CLI reads the
+attachment from stdin and takes only the name from `--file`. Without the
+redirect it waits on stdin forever, or, with stdin empty, the server refuses
+the file as empty.
 
 Pass `--description`: without it the description silently defaults to the
 file's basename, which is not the text you had approved.
+
+**Then check what arrived before reporting it done** — the bytes, and the two
+properties the CLI sets:
+
+```sh
+cd <scratchpad> && bugzilla attach --get <attachment id>
+cmp <scratchpad>/<file> <file>
+fetch -qo - 'https://bugs.freebsd.org/bugzilla/rest/bug/<bug>/attachment?exclude_fields=data'
+```
+
+`--get` never overwrites; it writes `<file>.1` if the name is taken, and says
+which name it used. The JSON should show `content_type` `text/plain` and
+`is_patch` `1`.
 
 ## Messages sent in Douglas's name
 
