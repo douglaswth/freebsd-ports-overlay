@@ -119,6 +119,20 @@ library prohibition and dependency preference are `special`'s top-level
   a prescribed location. And *"do not register any dependencies on the shells
   themselves."*
 
+  **Do not follow the fish row without checking it.** As of 2026-11-06 the table
+  at <https://docs.freebsd.org/en/books/porters-handbook/special/#shell-completion>
+  still gives `share/fish/completions`, which fish has ignored since 4.2. Its
+  4.8.0 changelog says packages installing there "should be corrected" to install
+  to `share/fish/vendor_completions.d`, so use
+  `${PREFIX}/share/fish/vendor_completions.d/${PORTNAME}.fish`. Check whether the
+  handbook has been updated each time, and drop this note once it has. Neighboring
+  ports are no guide, since many new ones still use the old path, and `testport`
+  cannot catch it, because the plist check passes either way.
+
+  **Name a bash completion file `foo.bash`.** bash-completion's README recommends
+  it and deprecates the unsuffixed name as of 2.18, and the loader has looked for
+  `$cmd.bash` in every release checked from 2.2 on, so older versions still find it.
+
 ## Step 5: Patching, if the software needs it
 
 Prefer not to. `BINARY_ALIAS` substitutes hardcoded commands during the build

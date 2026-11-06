@@ -265,3 +265,22 @@ not hardcode which versions or architectures those are — read the minimum
 supported `OSVERSION` out of `Mk/bsd.port.mk` (it errors below a fixed value),
 and take the architectures worth testing from the current Tier 1 set at
 <https://www.freebsd.org/platforms/>.
+
+**A jail runs on its host's kernel, so a host can only run jails of its own
+FreeBSD version or older.** Testing every live branch therefore takes a host on
+the newest one; a host on an older branch cannot test the newer branches at all.
+poudriere does not refuse such a jail, it warns "Host kernel must be same or
+newer than jail" and "Expect build failures" (`common.sh`), so a run there says
+nothing about the port. Compare the jail's version with `sysctl -n
+kern.osreldate` before proposing one, and list only the jails that actually ran
+in a PR.
+
+**An arm64 jail on an amd64 host runs under qemu, and some ports refuse to build
+there:** `lang/rust` and the Go ports through `lang/go/bsd.go.mk` with
+`IGNORE=fails to build with qemu-user-static`, and others with an `IGNORE` or
+`BROKEN` of their own. It is not limited to compilers, so look rather than assume:
+`git -c safe.directory=<tree> -C <tree> grep -l QEMU_EMULATING` shows what currently
+behaves differently there (the trees are root-owned, hence `safe.directory`). A
+dependency refused this way can only come from a binary package, at exactly the
+version the tree wants, so compare that with pkg.freebsd.org before starting a run.
+If they differ, the run fails at `fetch-depends` without testing the port.
