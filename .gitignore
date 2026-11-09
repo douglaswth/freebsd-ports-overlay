@@ -3,6 +3,7 @@
 /packages
 /*.diff
 /*/*.diff
+/*.patch
 /*/*/Makefile.local
 /*/*/work
 /*/*/work-*

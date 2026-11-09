@@ -1,7 +1,7 @@
 ---
 name: add-port
 description: Create a new FreeBSD port from scratch in this overlay, test it, and submit it to Bugzilla as a new-port PR. Use when the user wants to package software that has no port yet.
-allowed-tools: Bash(bugzilla query *) Bash(bugzilla attach *) Bash(bugzilla new *) Bash(bugzilla modify *) Bash(portedit *) Bash(gh api *) Bash(fetch -qo - *) Bash(bundle exec rake *) Bash(make *) Bash(cp *) Bash(git *) Bash(grep *) Read Edit Write Grep Glob WebFetch WebSearch AskUserQuestion Agent
+allowed-tools: Bash(bugzilla query *) Bash(bugzilla attach *) Bash(bugzilla new *) Bash(bugzilla modify *) Bash(portedit *) Bash(gh api *) Bash(fetch -qo - *) Bash(bundle exec rake *) Bash(make *) Bash(cp *) Bash(git *) Bash(grep *) Read Edit Write Grep Glob WebFetch WebSearch Bash(pgrep *) AskUserQuestion Agent Monitor
 ---
 
 # Add a New Port
@@ -150,7 +150,7 @@ bundle exec rake makepatch
 `rake makepatch` runs `make makepatch` with `PORTSDIR` pointed at the `githead`
 tree, so `smart_makepatch.sh` — which decides patch naming and whitespace
 handling — comes from the tree `update_githead` keeps current rather than from
-`/usr/ports`. That prerequisite means the first run of a day needs Douglas's
+`/usr/ports`. That prerequisite means the first run of a day needs the user's
 sudo, like `rake portlint` and `rake diff`; bare `make makepatch` in the port
 directory works too and needs none.
 
@@ -258,35 +258,123 @@ knob", which is wrong wherever the software cannot disable NLS at all. No port
 here triggers it today, but a new port with `USES=…gettext…` and no NLS option
 will.
 
-**`rake testport` is Douglas's to run** (it needs sudo). Hand him the command.
+**`rake testport` is the user's to run** (it needs sudo). Hand them the command.
 For a new port it is the step that proves `pkg-plist`, staging and `stage-qa`,
 so it is not optional. Where options alter the plist, the chapter asks for a run
-with all options selected **and** one with all deselected (`-c` presents the
-dialog).
+with all options selected **and** one with all deselected;
+`rake 'testport[-c]'` presents the options dialog first.
 
-**When a build runs long, read poudriere's log for the package that is
-building** — whether it is `rake testport` or caronade (step 11), and whether
-that package is the port or one of its dependencies. A background loop says
-nothing until the end. caronade's job log carries the port's own build as it
-happens, but for a dependency only a `Building <origin> | <pkgname>` line and
+**Follow every build with `Monitor` from the moment it starts** —
+`rake testport` and caronade (step 11) alike. A loop that waits only for the
+result says nothing until the end. Say what each event shows as it arrives. A
+monitor lasts at most 30 minutes, so re-arm it until the build ends.
+
+- **caronade:** poll the job's JSON every 30 seconds or more, letting a failed
+  fetch pass, and emit each queue's `Status` as it changes, `portlint`
+  included. A queue's log exists only once it is `building`; before that,
+  fetching it gives "Not Found". For each queue that builds, not `portlint`,
+  emit new log lines matching
+  `^\[[0-9:]+\] (\[[0-9]+\] \[[0-9:]+\] )?(Building|Finished) `,
+  `build failure encountered`, `Build failed in phase` or `build time:`, keeping
+  the last line number read so a re-armed monitor continues from there.
+  `Building with flags:` means the port's own build has begun; the port gets no
+  `Building <origin>` or `Finished` line. When a queue's `Status` becomes
+  `success` or `failure`, read its log once more before emitting the `Status`;
+  it is the result. A job that dies early, such as on the clone, gives the
+  monitor nothing to emit but the `Status`. Stop when no queue is `waiting` or
+  `building`. An empty `Build` means no queue ran, not that every queue passed.
+- **`rake testport`:** it shows you no output, and its runs are under
+  `/usr/local/poudriere/data/logs/bulk/<jail>-githead/`. The Rakefile picks the
+  jail matching this host's version and architecture, ignoring the patch level
+  (`-pN`), unless one is passed as `rake 'testport[<jail>]'`. `latest` there
+  points at the previous run until the new one starts, so record it when
+  handing over the command.
+
+  Below, `<spec>` is the port's origin, followed by `@<flavor>` when a flavor
+  was passed; poudriere writes it that way in its status lines and in
+  `.poudriere.ports.tobuild`. The run's process matches
+  `pgrep -f 'testport\.sh .*-j <jail> .*-o <spec>( |$)'`, where `<jail>` is
+  the one whose `latest` was recorded and any `+` in the origin is written as
+  `\+`; naming the jail keeps a run of the same port on another jail from
+  matching. Emit a line when that process appears and when it goes away:
+  a run that fails before it starts, on a broken or nonexistent port or with
+  "jail already running", ends without `latest` ever changing. If neither the
+  process nor a new `latest` has appeared when the first monitor expires, ask
+  the user what their terminal shows rather than re-arming.
+
+  When `latest` changes, the new run is this one. Once the run directory's
+  `.poudriere.status.journal%` has any line after `load_priorities:`
+  (`balancing_pool:`, or `committing:` when nothing needs building), emit
+  `.poudriere.ports.tobuild`: it lists every package the run will build, and
+  a dependency in it may be one the user did not expect. It is written after
+  `load_priorities:`, so reading it sooner can find it missing or empty.
+
+  Then emit new `testing:`, `interactive:` and `stopped:` lines from that
+  journal, new `starting:` lines from the builders'
+  `.poudriere.status.<NN>.journal%` files, new lines in
+  `.poudriere.ports.built`, and any entry appearing in `logs/errors/` (they are
+  symlinks). Each `starting:` line marks one dependency beginning to build. The
+  builders' files appear only if something is built, and the others may not
+  exist yet just after `latest` changes. Keep the run directory's name and the
+  line counts read, so a re-armed monitor continues from there.
+
+  The build has ended at any `stopped:` line except `stopped:<spec>:…`, which
+  success writes just before `done:` and `stopped:done:`. Only `stopped:done:`
+  is success. When the process goes away, read the journal once more, since
+  its last lines are written just before the process exits. If there is still
+  no `stopped:` line, the run died without one, so tell the user, unless the
+  last status is `interactive:`. If a monitor expires with no events while the
+  process is still running, say so and re-arm.
+- **`rake 'testport[-i]'` and `rake 'testport[-I]'`:** both write
+  `interactive:` after the port's build, whether it passed or failed. `-i`
+  then waits until the user leaves the jail, and ends as above. `-I` leaves the
+  jail running and exits at once without a `stopped:` line, so `interactive:`
+  with no process left is the end of a `-I` run; an empty `logs/errors/` means
+  the build passed. The jail stays up until
+  `sudo poudriere jail -k -j <jail> -p githead` stops it, and until then the
+  next `rake testport` on that jail fails with "jail already running", so
+  hand the user that command once they are done with the jail.
+- **`build time:` is not success.** poudriere prints it on failure too, one line
+  before `build failure encountered`.
+- **Running long:** this port's earlier `testport` runs and caronade jobs are
+  the baseline, once there are any. They are the run directories under
+  `/usr/local/poudriere/data/logs/bulk/<jail>-*/` whose
+  `.poudriere.status.journal%` has `testing:<spec>`; each one's
+  `.poudriere.started` and `.poudriere.ended` hold its start and end times in
+  seconds since the epoch. A run well past them is usually building
+  dependencies the user may not have expected, often because no binary package
+  matched. Say which ones, from `.poudriere.ports.tobuild` and the `Building`
+  or `starting:` lines, and how long each took before (see below).
+
+Read poudriere's log for the package that is building, whether that is the port
+or one of its dependencies. caronade's job log carries the port's own build as
+it happens, but for a dependency only a `Building <origin> | <pkgname>` line and
 later a `Finished` line; that `<pkgname>` names the log to read. `rake testport`
-shows you no output at all, so read the most recently modified log. Where
-poudriere's logs are readable, each package's own log is
-`/usr/local/poudriere/data/logs/bulk/<jail>-<tree>/latest/logs/<pkgname>.log`.
-For `rake testport`, `<tree>` is `githead`; for caronade, the `Logs:` line near
-the top of its job log names the run directory, and the package logs are in
-its `logs/` subdirectory. Every package poudriere builds has `<phase: …>`
-markers saying which phase its build is in (`build`, `stage`, `package`; the
-port under test adds `install` and `deinstall`), and the log's modification time says
-whether it is still writing. Once in `package`, the log writes nothing more
-until it is done, so a long quiet spell there is normal.
+shows you no output at all, but each builder's `starting:` line names the
+`<pkgname>` the same way. Where poudriere's logs are readable, each package's
+own log is `<run>/logs/<pkgname>.log`, where `<run>` is the run directory: for
+`rake testport`, the one `latest` pointed at once it changed, under
+`/usr/local/poudriere/data/logs/bulk/<jail>-githead/`, and for caronade, the
+one the `Logs:` line near the top of its job log names. Every package
+poudriere builds has `<phase: …>` markers saying which phase its build is in
+(`build`, `stage`, `package`; the port under test adds `install` and
+`deinstall`), and the log's modification time says whether it is still
+writing. Once in `package`, the log writes nothing more until it is done, so a
+long quiet spell there is normal.
 
-To estimate how long a dependency will take — before setting any limit on a
-background loop — look up its `build time:` line in earlier logs from the same
-jail, `/usr/local/poudriere/data/logs/bulk/<jail>-*/2*/logs/<portname>-[0-9]*.log`;
-the name carries the version, so the glob also finds builds of earlier ones.
-Skip any log ending in `!!! build failure encountered !!!`: a failed run's
-time is how long it took to fail.
+To estimate how long a dependency will take — before deciding a run is
+running long — look up its `build time:` line in earlier logs from the same
+jail:
+
+`/usr/local/poudriere/data/logs/bulk/<jail>-*/2*/logs/<PKGBASE>-[0-9]*.log`
+
+`<PKGBASE>` is the package name without its version: the `<pkgname>` from a
+`Building` or `starting:` line minus its version, or `make -V PKGBASE` in the
+port's directory. It is not `PORTNAME`, since prefixes such as `py312-` are part
+of it. The log name carries the version, so the glob also finds builds of
+earlier ones. A log with no `build time:` is a package that was downloaded, not
+built. Skip any log ending in `!!! build failure encountered !!!`: a failed
+run's time is how long it took to fail.
 
 Once `testport` passes, write the diff for review into the session scratchpad.
 `rake diff[patch]` is for the attachment, after the commit (step 11), and
@@ -300,7 +388,7 @@ bundle exec rake diff > <scratchpad>/<portname>.diff
 
 Once `testport` passes, and before anything goes to Bugzilla, dispatch a fresh
 reviewer with the `Agent` tool (`general-purpose`). You wrote the port; every
-check so far either ran a tool or ran past your own judgement. A reviewer with
+check so far either ran a tool or ran past your own judgment. A reviewer with
 none of this session's context reads it the way a committer will.
 
 **Brief it with artifacts, not conclusions.** Give it the diff's path, the port
@@ -322,7 +410,7 @@ Ask it to:
   silence on an area means "not examined", never "fine".
 
 **Its findings are claims, not verdicts.** Verify each against the source it
-cites before acting, and put the verified list in front of Douglas with what
+cites before acting, and put the verified list in front of the user with what
 you propose for each. A change that touches the port reruns step 9 —
 `testport` included — **and then this step**, with a fresh reviewer and a
 freshly written diff, before submission. A rename, a moved `SUBDIR` line or a
@@ -331,7 +419,7 @@ saw; passing lint and `testport` says nothing about whether it is right.
 
 ## Step 11: Submit
 
-**Commit first, then submit.** Once Douglas has seen the verified review and
+**Commit first, then submit.** Once the user has seen the verified review and
 the port is final, commit it here — the attachment carries the commit's
 author, date and message. Generate it with `rake diff[patch]`, which writes
 `<PKGNAME>.diff` at the repo root in the form `git format-patch` gives, with
@@ -353,13 +441,15 @@ API accepts, and never checks the response, so the rejection is silent. A
 queue that crashes caronade's worker is marked `failure` in the JSON and posts
 nothing to Gitea at all. Gitea is still where the job id comes from — the
 first finished status (`portlint` takes seconds) links to the job page in its
-`target_url`. Watch with a background loop until no queue is `waiting` or
-`building`. Do not draft the report until every queue has passed. A failure is
-a change like any other — fix it, and the port goes back through steps 9 and
-10.
+`target_url`. Follow it with `Monitor` as step 9 describes, until no
+queue is `waiting` or `building`. Do not draft the report until every queue has
+passed. A failure is a change like any other — fix it, and the port goes back
+through steps 9 and 10.
 
-A build that runs long is followed from poudriere's log for the package that
-is building, as in step 9.
+**Start that `Monitor` as soon as the job id is known**, not once the build
+seems slow. The job log is
+`https://caronade.douglasthrift.net/logs/<job id>/<ID>.log`, with `<ID>`
+from the queue's entry under `Build`.
 
 Submission title: `[NEW PORT] category/portname short description of the port`.
 Product "Ports & Packages", Component "Individual Port(s)". From the Problem
@@ -373,8 +463,10 @@ for *"a short description of the program"*, perhaps a short version of
 `upgrading` chapter's, for updates, and its reason — git needs them named at
 commit time — does not survive `git am`, which adds them itself, while the
 patch's own diffstat already names them. Do not say who will maintain it;
-`MAINTAINER` says so. Douglas's own new-port PRs (bugs 217908, 217910, 217912)
-take this form:
+`MAINTAINER` says so. Bug 217910, one of three new-port PRs filed this way
+(with bugs 217908 and 217912), reads as follows; their titles use the form the
+handbook asked for in 2017, `New port: category/portname short description`,
+rather than the one above:
 
 ```
 Added dns/rubygem-simpleidn [1].
@@ -422,13 +514,13 @@ fetch -qo - 'https://bugs.freebsd.org/bugzilla/rest/bug/<bug>/attachment?exclude
 which name it used. The JSON should show `content_type` `text/plain` and
 `is_patch` `1`.
 
-## Messages sent in Douglas's name
+## Messages sent in the user's name
 
-Every Bugzilla comment, bug description and attachment description that goes out
-as him is **approved or reshaped first, and the gate is not yes/no.** Show the
-draft in full as it will render; use `AskUserQuestion` with options that offer
-reshaping rather than send/hold; treat the free-text answer as the edit channel;
-repeat until he approves.
+Every Bugzilla comment, bug description and attachment description that goes
+out as the user is **approved or reshaped first, and the gate is not yes/no.**
+Show the draft in full as it will render; use `AskUserQuestion` with options
+that offer reshaping rather than send/hold; treat the free-text answer as the
+edit channel; repeat until they approve.
 
 Comments render inside `<pre class="bz_comment_text">`: **no Markdown**,
 whitespace literal, so **hard-wrap it** — ~76 columns by convention — and

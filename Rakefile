@@ -245,33 +245,46 @@ task diff: :update_githead do |_, args|
   end
 end
 
-desc 'Test the port with poudriere'
-task :testport, %i(jailname flavor) => %i(update_githead register_overlay) do |_, args|
+desc 'Test the port with poudriere; arguments in any order: jail, @flavor, -flags'
+task :testport, %i(jailname) => %i(update_githead register_overlay) do |_, args|
+  # Arguments can come in any order: one starting with '-' is a flag for
+  # poudriere testport, one starting with '@' is the flavor, as poudriere itself
+  # spells it after the origin, and the one left is the jail, e.g.
+  # rake 'testport[@py311,-i]'.
+  arguments = args.to_a.reject(&:empty?)
+  flags = arguments.select {|arg| arg.start_with?('-') }
+  flavors = arguments.select {|arg| arg.start_with?('@') }
+  names = arguments - flags - flavors
+  raise "expected at most one flavor, got #{flavors.join(', ')}" if flavors.size > 1
+  raise "expected at most one jail, got #{names.join(', ')}" if names.size > 1
+  flavor = flavors.first&.delete_prefix('@')
+  raise 'expected a flavor name after @' if flavor&.empty?
+  jailname = names.first
   this_version = clean_version(`uname -r`.chomp)
   this_arch = `uname -m`.chomp
   this_jailname = nil
   `poudriere jail -l -q`.each_line do |line|
     line.chomp!
     if line =~ /^([^ ]+) +([^ ]+) +([^ ]+) +([^ ]+).+$/
-      jailname, version, arch = $1, $2, $3
+      name, version, arch = $1, $2, $3
       # The creation method says nothing about whether a jail is the right one to
       # test in; version and architecture do. This used to require 'ftp', which
       # stopped matching anything when poudriere's default became 'http'.
       if clean_version(version) == this_version && arch == this_arch
-        this_jailname = jailname
+        this_jailname = name
         break
       end
     else
       raise "unexpected line: #{line}"
     end
   end
-  raise "no #{this_version} #{this_arch} jail found" if this_jailname.nil? && args.jailname.nil?
-  args.with_defaults(jailname: this_jailname)
+  raise "no #{this_version} #{this_arch} jail found" if this_jailname.nil? && jailname.nil?
+  jailname ||= this_jailname
   in_portdir do |portdir|
     rel_portdir = portdir.relative_path_from(portsdir)
     # -b latest prefetches binary packages for the dependencies instead of
     # building them, matching the cron bulk builds and caronade's recipe.
-    sh "sudo poudriere testport -b latest -j #{args.jailname} -o #{rel_portdir}#{args.flavor && "@#{args.flavor}"} -p githead -O overlay"
+    sh 'sudo', 'poudriere', 'testport', '-b', 'latest', '-j', jailname, '-o', "#{rel_portdir}#{flavor && "@#{flavor}"}", '-p', 'githead', '-O', 'overlay', *flags
   end
 end
 

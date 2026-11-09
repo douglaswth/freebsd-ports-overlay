@@ -24,7 +24,7 @@ upstream commit being mirrored:
 
 ## Referring to bugs and attachments
 
-**In anything written to Douglas, a Bugzilla bug or attachment is a Markdown
+**In anything written to the user, a Bugzilla bug or attachment is a Markdown
 link, not a bare number** — `[bug 299978](https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=299978)`,
 `[attachment 276374](https://bugs.freebsd.org/bugzilla/attachment.cgi?id=276374)`.
 Not in Bugzilla comments themselves, which render as plain text: there the
@@ -34,7 +34,7 @@ number alone is the convention, and Bugzilla links it.
 
 Upstream changes are brought in with `git am`, not by hand-editing, so the
 original author and author date are preserved and only the committer becomes
-Douglas. GitHub serves any ports commit as a ready-made mbox:
+the user. GitHub serves any ports commit as a ready-made mbox:
 
 ```sh
 fetch -qo - https://github.com/freebsd/freebsd-ports/commit/<sha>.patch | git am
@@ -136,17 +136,28 @@ there is nothing for CI to add.
   named `overlay`, via `poudriere ports -c -m null -M <repo> -f none`. `-m null`
   means poudriere registers the directory without creating or populating it, and
   `-f none` is required or the create errors on the directory already existing.
-- `rake testport[jailname,flavor]` — `poudriere testport -b latest -p githead
-  -O overlay`. `-O` takes a registered tree *name*, not a path, and poudriere
-  nullfs-mounts it over the base tree, resolving ports through it first
-  (`common.sh:874-875`, `:2310-2313`). So the build reads this working copy
-  directly. `githead` stays as the base tree — it supplies `Mk/`, the
+- `rake testport[jailname,@flavor,-flags]` — `poudriere testport -b latest
+  -p githead -O overlay`. `-O` takes a registered tree *name*, not a path, and
+  poudriere nullfs-mounts it over the base tree, resolving ports through it
+  first (`common.sh:874-875`, `:2310-2313`). So the build reads this working
+  copy directly. `githead` stays as the base tree — it supplies `Mk/`, the
   dependencies and every port not carried here.
 
   `-b latest` prefetches binary packages for the dependencies rather than
   building them, matching the cron bulk builds configured outside this repo and
   caronade's own `poudriere.mk`. Without it a single port update rebuilds its
   whole dependency tree from source.
+
+  The arguments are all optional and go in any order, told apart by their
+  first character. One starting with `@` is the flavor, spelled as poudriere
+  writes it after the origin, so `rake 'testport[@py311]'` tests
+  `<origin>@py311` on this host's jail. Any starting with `-` is passed on to
+  `poudriere testport` after the rest, so `rake 'testport[-i]'` opens a shell
+  in the jail once the port is built and `rake 'testport[<jail>,-c]'` runs
+  `make config` first; a flag that takes a value has it attached, as in `-J4`.
+  The one left is the jail, which defaults to the one matching this host's
+  version and architecture. A second flavor or a second jail is an error, and
+  a jail whose name starts with `-` or `@` cannot be passed.
 
   This replaced copying the port's files into the root-owned `githead` with
   `sudo cp`, which is why `testport` now needs only one `sudo`, for the build

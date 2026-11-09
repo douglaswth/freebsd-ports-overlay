@@ -9,7 +9,7 @@ allowed-tools: Bash(gh api *) Bash(fetch *) Bash(git *) Bash(grep *) Bash(cmp *)
 The authoritative copy of every port here is the FreeBSD ports tree. This repo
 is where changes are prepared before submission and where upstream changes are
 mirrored back. Mirroring uses `git am` so the original author and author date
-survive and only the committer becomes Douglas.
+survive and only the committer becomes the user.
 
 Triggers: a commit-hook "A commit references this bug" mail; a FreshPorts
 watch-list notification; or a periodic check for drift, which is the
@@ -185,7 +185,7 @@ whether the port exists in `githead`; caronade's recipe does not.
 ## Never hand-edit instead
 
 Mirroring is `git am` precisely so authorship survives. Hand-applying an
-upstream change makes Douglas the author of someone else's work, and the commit
+upstream change makes the user the author of someone else's work, and the commit
 then misreports who wrote it. If a patch will not apply, fix the ordering or
 sync the directory — do not retype the change.
 

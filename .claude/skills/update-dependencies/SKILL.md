@@ -98,7 +98,7 @@ Check changelogs on GitHub or RubyGems for details. Present a summary table to t
 
 **A security advisory in a dependency is not automatically an exposure, and the question is settled by mechanism, not by name.** Read the advisory for the specific code path it names, then test whether this repo reaches *that*. Grepping for a plausible identifier and finding nothing proves nothing — it tests a name, not the property.
 
-**Then check each behaviour change against actual usage before treating it as a risk.** A changed default or stricter validation only matters if this code reaches it.
+**Then check each behavior change against actual usage before treating it as a risk.** A changed default or stricter validation only matters if this code reaches it.
 
 Observed in a sibling repo: activesupport's CVE-2026-66066 was in **Active Storage**, which was not in that bundle at all. graphql's was `Marshal` deserialization in `GraphQL::Language::Cache#fetch` — settling that needed a check for a configured parser cache under *any* spelling, for `parse_file` calls, and for `Marshal` anywhere in graphql-client; a grep for `parser_cache` alone was worthless, and this repo *does* cache GraphQL data (a JSON schema dump), just not through the vulnerable path. tilt's new `.html.erb` registration was inert — no such files.
 

@@ -58,18 +58,18 @@ to classify; the body carries the arguments.
 | FreshPorts watch-list notification | a commit to a maintained port, by anyone | `mirror-upstream-commit` |
 | pkg-fallout failure | jail, architecture, failing phase, log URL | `update-port`, or a fix |
 | "Problem reports … need special attention" | the open PRs awaiting action | reconcile, step 2 |
-| Bug mail where the maintainer is only on CC | nothing actionable | no action |
+| Bug mail where the user is only on CC | nothing actionable | no action |
 
 Three classifications that are easy to get wrong, each found by getting it
 wrong:
 
 - **Read the requestee, not the flag name.** A `maintainer-feedback?` in a
-  subject does not mean it is addressed to the maintainer. Bugs arrive because
-  he is CC'd, and their flags are often requested of other people. Check who the
-  flag is set on before routing to `review-port-pr`.
+  subject does not mean it is addressed to the user. Bugs arrive because the
+  user is CC'd, and those bugs' flags are often requested of other people.
+  Check who the flag is set on before routing to `review-port-pr`.
 - **A flag on a closed bug is residue, not work.** Bug 298985 is Closed FIXED
-  with `maintainer-feedback?` still set on him. Nothing is owed. Do not present
-  these as a queue.
+  with `maintainer-feedback?` still set. Nothing is owed. Do not present these
+  as a queue.
 - **Human correspondence from committers is real queue mail and may not be
   filed with the rest.** Service senders (bugzilla, portscout, pkg-fallout,
   FreshPorts) are easy to filter on; mail from an individual committer — often
@@ -104,7 +104,7 @@ because residual flags are this step's whole subject.
 Two properties of the digest worth knowing:
 
 - It enumerates **open** problem reports by status, so a resolved bug cannot
-  appear in it however its flags are set. That is correct behaviour, not a gap.
+  appear in it however its flags are set. That is correct behavior, not a gap.
 - It is sent **weekly**, so a bug that opens and resolves inside a week never
   appears in one at all. Bug 298985 did exactly that — filed 30 September,
   committed 3 October, never digested. So the digest is a backstop for things
@@ -163,7 +163,7 @@ version until the port is updated, and it never sees the mailbox, so a message's
 read state changes nothing on its side. When portscout mail arrives, read that
 page, not only the mail: it carries ports the mail did not mention, and it is
 what tells you whether a bump is still owed. Whether to keep a portscout message
-unread as a personal reminder is the maintainer's choice, not an obligation.
+unread as a personal reminder is the user's choice, not an obligation.
 
 The rest divides cleanly:
 
@@ -171,9 +171,9 @@ The rest divides cleanly:
   mail, anything whose work is finished, and portscout mail once its ports are on
   the page.
 - **Leave unread**: any `maintainer-feedback?`/`maintainer-approval?` genuinely
-  requested of the maintainer and not yet answered.
+  requested of the user and not yet answered.
 
-Hand the mail tooling the exact set you enumerated and summarised — never a
+Hand the mail tooling the exact set you enumerated and summarized — never a
 range or a predicate — and let its own confirmation gate run.
 
 ## Common Mistakes
@@ -181,7 +181,7 @@ range or a predicate — and let its own confirmation gate run.
 - **Presenting flags on closed bugs as a queue.** They are residue; the digest
   is right to ignore them.
 - **Assuming a `maintainer-feedback?` in a subject is addressed to the
-  maintainer.** Read the requestee.
+  user.** Read the requestee.
 - **Treating the weekly digest as the queue.** It misses anything that opens and
   closes inside a week, and it only ever lists open reports.
 - **Treating the portscout mail as the queue.** The maintainer page lists every
