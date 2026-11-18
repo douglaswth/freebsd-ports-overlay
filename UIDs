@@ -1,0 +1,1 @@
+gitea-runner:*:809:809::0:0:Gitea Runner:/var/db/gitea-runner:/usr/sbin/nologin

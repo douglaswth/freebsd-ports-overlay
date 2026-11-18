@@ -1,0 +1,39 @@
+[
+{ type: install
+  message: <<EOM
+Each runner needs a config file and a one-time registration. The
+registration is made as the user the runner runs as, from its state
+directory, where it writes .runner. For one runner:
+
+  %%PREFIX%%/bin/gitea-runner -c %%ETCDIR%%/config.yaml config init
+  cd /var/db/gitea-runner
+  su -m %%GITEA_RUNNER_USER%% -c '%%PREFIX%%/bin/gitea-runner -c %%ETCDIR%%/config.yaml register'
+  sysrc gitea_runner_enable=YES
+  service syslogd reload
+  service gitea_runner start
+
+For several, list them in gitea_runner_profiles and give each its
+gitea_runner_<profile>_* variables; see %%PREFIX%%/etc/rc.d/gitea_runner.
+Each profile starts in /var/db/gitea-runner/<profile>, which keeps its
+.runner. The runner keeps its caches under its user's home, so profiles
+that share a user each need their own cache.dir in their config.
+Output goes to /var/log/gitea-runner.log, tagged with each profile.
+
+Container jobs ("docker://" labels) need a Docker-compatible API. On
+FreeBSD that is Podman's: install sysutils/podman-suite, enable
+podman_service, add the runner's user to group operator, which owns the
+socket, and point the runner at it through the environment:
+
+  sysrc gitea_runner_env="DOCKER_HOST=unix:///var/run/podman/podman.sock"
+
+Set container.docker_host to "-" in the config. A socket path there is
+also mounted into every job container, which gives each workflow
+control of Podman.
+
+If you are coming from devel/gitea-act_runner: pkg upgrade does not
+replace it. Delete it, rename act_runner_* in rc.conf to gitea_runner_*,
+and register again: the runner now runs as %%GITEA_RUNNER_USER%%, from
+/var/db/gitea-runner. The act_runner user is not removed.
+EOM
+}
+]

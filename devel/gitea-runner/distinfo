@@ -1,0 +1,5 @@
+TIMESTAMP = 1794609716
+SHA256 (go/devel_gitea-runner/gitea-runner-v6.0.0/v6.0.0.tar.gz) = 563cdba528c213114c8d00f3b34d049f10049f288ef9f4e0e6d1b6946343d498
+SIZE (go/devel_gitea-runner/gitea-runner-v6.0.0/v6.0.0.tar.gz) = 640955
+SHA256 (go/devel_gitea-runner/gitea-runner-v6.0.0/go.mod) = 116b5dbeb89289c3adfca74cdac8c2acd2b1a82d7cefc5d161ef4af4a387f16a
+SIZE (go/devel_gitea-runner/gitea-runner-v6.0.0/go.mod) = 2376

@@ -1,0 +1,121 @@
+#!/bin/sh
+
+# PROVIDE: gitea_runner
+# REQUIRE: LOGIN NETWORKING podman_service
+# KEYWORD: shutdown
+#
+# Add the following lines to /etc/rc.conf to enable gitea_runner:
+#
+# gitea_runner_enable (bool):	Set to "NO" by default.
+#				Set it to "YES" to enable gitea_runner.
+# gitea_runner_user (str):	User the runner runs as.
+#				Default: "%%GITEA_RUNNER_USER%%".
+# gitea_runner_group (str):	Group of the state directory.
+#				Default: "%%GITEA_RUNNER_GROUP%%".
+# gitea_runner_config (str):	Config file.
+#				Default: "%%ETCDIR%%/config.yaml".
+# gitea_runner_dir (str):	State directory: where the runner starts and
+#				keeps .runner. Default: the user's home, which
+#				daemon(8) also gives the runner as HOME, or
+#				"/var/db/gitea-runner/<profile>" for a profile.
+# gitea_runner_umask (str):	File creation mask. Default: "027", so that
+#				.runner and the caches are not world-readable.
+# gitea_runner_args (str):	Command and its arguments. Default: "daemon".
+# gitea_runner_env (str):	Environment for the runner, such as
+#				DOCKER_HOST. Default: "".
+# gitea_runner_profiles (str):	Runners to manage, each set with
+#				gitea_runner_<profile>_enable, _user, _group,
+#				_config, _dir, _args, _env and _umask. A
+#				profile's config defaults to
+#				"%%ETCDIR%%/<profile>.yaml". The runner keeps
+#				its caches under HOME, so profiles that share
+#				a user each need their own cache.dir.
+#				Default: "".
+
+. /etc/rc.subr
+
+name="gitea_runner"
+rcvar="gitea_runner_enable"
+
+load_rc_config "${name}"
+
+: ${gitea_runner_enable:="NO"}
+: ${gitea_runner_user:="%%GITEA_RUNNER_USER%%"}
+: ${gitea_runner_group:="%%GITEA_RUNNER_GROUP%%"}
+: ${gitea_runner_config:="%%ETCDIR%%/config.yaml"}
+: ${gitea_runner_args:="daemon"}
+: ${gitea_runner_umask:="027"}
+
+_tag="${name}"
+pidfile="/var/run/${name}.pid"
+
+if [ -n "$2" ]; then
+	profile="$2"
+	if [ -n "${gitea_runner_profiles}" ]; then
+		_tag="${name}_${profile}"
+		pidfile="/var/run/${name}.${profile}.pid"
+		eval gitea_runner_enable="\${gitea_runner_${profile}_enable:-${gitea_runner_enable}}"
+		eval gitea_runner_user="\${gitea_runner_${profile}_user:-${gitea_runner_user}}"
+		eval gitea_runner_group="\${gitea_runner_${profile}_group:-${gitea_runner_group}}"
+		eval gitea_runner_config="\${gitea_runner_${profile}_config:-%%ETCDIR%%/${profile}.yaml}"
+		eval gitea_runner_dir="\${gitea_runner_${profile}_dir:-/var/db/gitea-runner/${profile}}"
+		eval gitea_runner_args="\${gitea_runner_${profile}_args:-${gitea_runner_args}}"
+		eval gitea_runner_env="\${gitea_runner_${profile}_env:-${gitea_runner_env}}"
+		eval gitea_runner_umask="\${gitea_runner_${profile}_umask:-${gitea_runner_umask}}"
+	else
+		echo "%%PREFIX%%/etc/rc.d/gitea_runner: extra argument ignored"
+	fi
+else
+	if [ -n "${gitea_runner_profiles}" -a -n "$1" ]; then
+		for profile in ${gitea_runner_profiles}; do
+			eval _enable="\${gitea_runner_${profile}_enable}"
+			case "${_enable:-${gitea_runner_enable}}" in
+			[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|[Oo][Ff][Ff]|0)
+				continue
+				;;
+			[Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]|[Oo][Nn]|1)
+				;;
+			*)
+				if [ -z "${_enable}" ]; then
+					_var=gitea_runner_enable
+				else
+					_var=gitea_runner_"${profile}"_enable
+				fi
+				warn "Bad value" \
+				    "'${_enable:-${gitea_runner_enable}}'" \
+				    "for ${_var}. " \
+				    "Profile ${profile} skipped."
+				continue
+				;;
+			esac
+			echo "===> gitea_runner profile: ${profile}"
+			%%PREFIX%%/etc/rc.d/gitea_runner $1 ${profile}
+		done
+		exit 0
+	fi
+fi
+
+: ${gitea_runner_dir:=$(/usr/bin/getent passwd "${gitea_runner_user}" | /usr/bin/cut -d: -f6)}
+
+command="/usr/sbin/daemon"
+command_args="-r -P ${pidfile} -S -l daemon -s info -T ${_tag} \
+    -u ${gitea_runner_user} \
+    %%PREFIX%%/bin/gitea-runner -c ${gitea_runner_config} ${gitea_runner_args}"
+gitea_runner_chdir="${gitea_runner_dir}"
+required_files="${gitea_runner_config}"
+
+start_precmd="gitea_runner_prestart"
+
+gitea_runner_prestart()
+{
+	if [ -z "${gitea_runner_dir}" ]; then
+		err 1 "no state directory: set ${name}${profile:+_${profile}}_dir" \
+		    "or give ${gitea_runner_user} a home"
+	fi
+	if [ ! -d "${gitea_runner_dir}" ]; then
+		install -d -o "${gitea_runner_user}" -g "${gitea_runner_group}" \
+		    -m 750 "${gitea_runner_dir}" || return 1
+	fi
+}
+
+run_rc_command "$1"

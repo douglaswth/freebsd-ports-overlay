@@ -1,0 +1,8 @@
+bin/gitea-runner
+@sample etc/newsyslog.conf.d/gitea-runner.conf.sample
+@sample etc/syslog.d/gitea-runner.conf.sample
+%%PORTEXAMPLES%%%%EXAMPLESDIR%%/config.example.yaml
+@dir %%ETCDIR%%
+@dir etc/newsyslog.conf.d
+@dir etc/syslog.d
+@dir(%%GITEA_RUNNER_USER%%,%%GITEA_RUNNER_GROUP%%,755) /var/db/gitea-runner
