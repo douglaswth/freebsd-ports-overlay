@@ -20,7 +20,9 @@
 #				"/var/db/gitea-runner/<profile>" for a profile.
 # gitea_runner_umask (str):	File creation mask. Default: "027", so that
 #				.runner and the caches are not world-readable.
-# gitea_runner_args (str):	Command and its arguments. Default: "daemon".
+# gitea_runner_args (str):	Command and its arguments, without -c.
+#				Default: "daemon". gitea_runner_flags is not
+#				used, since rc.subr would pass it to daemon(8).
 # gitea_runner_env (str):	Environment for the runner, such as
 #				DOCKER_HOST. Default: "".
 # gitea_runner_profiles (str):	Runners to manage, each set with
@@ -28,9 +30,14 @@
 #				_config, _dir, _args, _env and _umask. A
 #				profile's config defaults to
 #				"%%ETCDIR%%/<profile>.yaml". The runner keeps
-#				its caches under HOME, so profiles that share
-#				a user each need their own cache.dir.
-#				Default: "".
+#				its caches and host work directories under
+#				HOME, so profiles that share a user each need
+#				their own cache.dir and host.workdir_parent.
+#				Profile names must be valid in shell variable
+#				names, so no "-". Default: "".
+#
+# The config and args values are quoted with ' when the runner is started, so
+# they cannot contain one.
 
 . /etc/rc.subr
 
@@ -67,40 +74,31 @@ if [ -n "$2" ]; then
 	fi
 else
 	if [ -n "${gitea_runner_profiles}" -a -n "$1" ]; then
+		_status=0
 		for profile in ${gitea_runner_profiles}; do
-			eval _enable="\${gitea_runner_${profile}_enable}"
-			case "${_enable:-${gitea_runner_enable}}" in
-			[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|[Oo][Ff][Ff]|0)
-				continue
-				;;
-			[Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]|[Oo][Nn]|1)
-				;;
-			*)
-				if [ -z "${_enable}" ]; then
-					_var=gitea_runner_enable
-				else
-					_var=gitea_runner_"${profile}"_enable
-				fi
-				warn "Bad value" \
-				    "'${_enable:-${gitea_runner_enable}}'" \
-				    "for ${_var}. " \
-				    "Profile ${profile} skipped."
-				continue
-				;;
-			esac
+			_enable="gitea_runner_${profile}_enable"
+			eval "[ -n \"\${${_enable}}\" ]" || _enable="gitea_runner_enable"
+			checkyesno ${_enable} || continue
 			echo "===> gitea_runner profile: ${profile}"
-			%%PREFIX%%/etc/rc.d/gitea_runner $1 ${profile}
+			%%PREFIX%%/etc/rc.d/gitea_runner $1 ${profile} || _status=$?
 		done
-		exit 0
+		exit ${_status}
 	fi
 fi
 
 : ${gitea_runner_dir:=$(/usr/bin/getent passwd "${gitea_runner_user}" | /usr/bin/cut -d: -f6)}
 
+# rc.subr would start daemon(8) through su(1) as ${name}_user, but daemon(8)
+# has to start as root to write its pidfiles, and switches to the user itself.
+_runner_user="${gitea_runner_user}"
+unset gitea_runner_user
+
 command="/usr/sbin/daemon"
-command_args="-r -P ${pidfile} -S -l daemon -s info -T ${_tag} \
-    -u ${gitea_runner_user} \
-    %%PREFIX%%/bin/gitea-runner -c ${gitea_runner_config} ${gitea_runner_args}"
+# daemon(8) -u sets the umask from the user's login class, so the runner's is
+# set after the switch.
+command_args="-R 5 -P ${pidfile} -l daemon -s info -T ${_tag} -t ${_tag} \
+    -u ${_runner_user} /bin/sh -c 'umask ${gitea_runner_umask} && \
+    exec %%PREFIX%%/bin/gitea-runner -c ${gitea_runner_config} ${gitea_runner_args}'"
 gitea_runner_chdir="${gitea_runner_dir}"
 required_files="${gitea_runner_config}"
 
@@ -108,12 +106,16 @@ start_precmd="gitea_runner_prestart"
 
 gitea_runner_prestart()
 {
-	if [ -z "${gitea_runner_dir}" ]; then
+	if [ -n "${gitea_runner_flags}" ]; then
+		err 1 "gitea_runner_flags would go to daemon(8):" \
+		    "use gitea_runner_args"
+	fi
+	if [ -z "${gitea_runner_dir}" -o "${gitea_runner_dir}" = "/nonexistent" ]; then
 		err 1 "no state directory: set ${name}${profile:+_${profile}}_dir" \
-		    "or give ${gitea_runner_user} a home"
+		    "or give ${_runner_user} a home"
 	fi
 	if [ ! -d "${gitea_runner_dir}" ]; then
-		install -d -o "${gitea_runner_user}" -g "${gitea_runner_group}" \
+		install -d -o "${_runner_user}" -g "${gitea_runner_group}" \
 		    -m 750 "${gitea_runner_dir}" || return 1
 	fi
 }

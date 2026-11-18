@@ -2,4 +2,4 @@ Gitea Runner runs the jobs of Gitea Actions workflows. Registered with a
 Gitea instance, it runs them in containers through a Docker-compatible
 API, such as Podman's, or directly on the host.
 
-It was called act_runner until 6.0.0.
+It was called act_runner before 1.0.0.
