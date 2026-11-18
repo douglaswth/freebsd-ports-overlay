@@ -172,6 +172,21 @@ there is nothing for CI to add.
   category Makefile, inserted in byte order, which is how 59 of the 62 category
   Makefiles were sorted when this was written.
 
+  **A port that adds a user or group carries its lines in `UIDs` and `GIDs`
+  files at this repo's root**, holding only lines the tree lacks. `-O` overlays
+  port directories alone, so without them `testport` fails at stage with
+  "Cannot find any information about group". The configuration-management
+  repo's `poudriere` module installs `githead-make.conf`, which adds an
+  overlay's root files to `UID_FILES` and `GID_FILES`. `rake diff` merges the
+  lines for the port's `USERS` and `GROUPS` into the tree's files: each
+  replaces its ID's `# free:` comment, or goes before the first higher ID.
+  Lines the tree already has drop out, so once the change lands upstream the
+  root entries can be removed. Caronade's own recipe copies only port
+  directories and `Mk/`, so the queues use one from the
+  configuration-management repo's `caronade` module, which also puts these
+  files in front of the tree's. `MOVED` and `UPDATING` entries are left to
+  the committer.
+
   The output is in exactly the form `git format-patch` would give: the mail
   header of the latest commit touching the port (author, date, message), the
   diffstat, the diff, and the git version signature. So it applies with

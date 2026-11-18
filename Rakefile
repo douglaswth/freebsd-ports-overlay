@@ -155,11 +155,45 @@ task diff: :update_githead do |_, args|
     tree_portdir = portstree.path.join(rel_portdir)
     new_port = !tree_portdir.exist?
 
+    # A port that adds a user or group carries its lines in UIDs and GIDs files
+    # at this repo's root, since only port directories are overlaid on the
+    # tree. The lines for the users and groups this port names go into the
+    # tree's files: each replaces its ID's "# free:" line, or failing that goes
+    # before the first line with a higher ID, as both files are sorted by ID.
+    # Lines the tree already has are left out, so they drop out of the patch
+    # once the change lands.
+    edits = {}
+    {'UIDs' => 'USERS', 'GIDs' => 'GROUPS'}.each do |file, variable|
+      ours = portsdir.join(file)
+      next unless ours.exist?
+      names = with_portsdir(portstree.path) {`make -V #{variable}`}
+      raise "make -V #{variable} failed with status #{$?.exitstatus}" unless $?.success?
+      names = names.split
+      lines = portstree.path.join(file).readlines
+      added = false
+      ours.readlines.each do |entry|
+        entry = "#{entry.chomp}\n"
+        name, _, id = entry.split(':', 4)
+        next unless names.include?(name) && lines.none? {|line| line.start_with?("#{name}:")}
+        id = Integer(id, 10)
+        # Some say more, as in "# free: 229, GID used".
+        free = lines.index {|line| line =~ /\A# free: #{id}(?!\d)/}
+        if free
+          lines[free] = entry
+        else
+          index = lines.index {|line| line =~ /\A(?:# free: |[^#:][^:]*:[^:]*:)(\d+)/ && $1.to_i > id} || lines.size
+          lines.insert(index, entry)
+        end
+        added = true
+      end
+      edits[Pathname.new(file)] = lines if added
+    end
+
     # The patch carries the mail header of a commit here -- its author, date
     # and message -- so the diff below it has to be what that commit holds.
     # Anything not yet committed would make the two disagree, so the patch is
     # refused and the diff is shown without a header.
-    clean = git_output('status', '--porcelain', '--', '.').empty?
+    clean = git_output('status', '--porcelain', '--', '.', *edits.keys.map {|file| portsdir.join(file).to_s}).empty?
     raise "#{rel_portdir} has uncommitted changes; commit them first" if patch && !clean
     if clean
       commit ||= git_output('log', '-1', '--format=%H', '--', '.').chomp
@@ -194,6 +228,7 @@ task diff: :update_githead do |_, args|
         index = subdirs.find {|i| lines[i].split.last > name} || subdirs.last + 1
         lines.insert(index, entry)
       end
+      edits[category_makefile] = lines
     end
 
     # Each side is added from where it sits on disk into its own index in a
@@ -208,13 +243,17 @@ task diff: :update_githead do |_, args|
       tree_side, port_side = [[portstree.path, tree_files], [portsdir, files]].map.with_index do |(root, paths), side|
         env = {'GIT_INDEX_FILE' => "#{tmpdir}/index#{side}"}
         paths = paths.map {|path| rel_portdir.join(path).to_s}
-        paths << category_makefile.to_s if new_port && side == 0
+        paths.concat(edits.keys.map(&:to_s)) if side == 0
         git_output('-C', root.to_s, '--literal-pathspecs', git_dir, "--work-tree=#{root}", 'add', '-f', '--', *paths, env: env) unless paths.empty?
-        if new_port && side == 1
-          makefile = Pathname.new(tmpdir).join('Makefile')
-          makefile.write(lines.join)
-          blob = git_output(git_dir, 'hash-object', '-w', makefile.to_s).chomp
-          git_output(git_dir, 'update-index', '--add', '--cacheinfo', "100644,#{blob},#{category_makefile}", env: env)
+        if side == 1
+          # The tree's files with this port's lines added, which exist only
+          # here, so they go into the index as blobs.
+          edits.each do |path, content|
+            edited = Pathname.new(tmpdir).join('edited')
+            edited.write(content.join)
+            blob = git_output(git_dir, 'hash-object', '-w', edited.to_s).chomp
+            git_output(git_dir, 'update-index', '--add', '--cacheinfo', "100644,#{blob},#{path}", env: env)
+          end
         end
         git_output(git_dir, 'write-tree', env: env).chomp
       end
