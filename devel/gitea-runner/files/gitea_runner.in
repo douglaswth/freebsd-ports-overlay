@@ -33,8 +33,17 @@
 #				its caches and host work directories under
 #				HOME, so profiles that share a user each need
 #				their own cache.dir and host.workdir_parent.
-#				Profile names must be valid in shell variable
-#				names, so no "-". Default: "".
+#				HOME has to exist and be writable by the user;
+#				for a user without one, set both in the config.
+#				Each config must be readable by a group its
+#				user is in. Register each profile as its user
+#				from its _dir, made first with install -d
+#				-o <user> -g <group> -m 750. Profile names
+#				must be valid in shell variable names, so no
+#				"-". service -e and -R see only
+#				gitea_runner_enable, so set it to YES as well
+#				when profiles are enabled with their own
+#				_enable. Default: "".
 #
 # The config and args values are quoted with ' when the runner is started, so
 # they cannot contain one.

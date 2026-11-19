@@ -1,72 +1,37 @@
 [
 { type: install
   message: <<EOM
-Each runner needs a config file it can read and a one-time registration.
-The registration is made as the user the runner runs as, from its state
-directory, where it writes .runner, which holds the runner's token. For
-one runner:
+To set up Gitea Runner, follow https://gitea.com/gitea/runner, but put
+its config in %%ETCDIR%%/config.yaml, readable by group
+%%GITEA_RUNNER_GROUP%%, and register it like this, so that it reads that config
+and the .runner file it writes is not readable by everyone:
 
-  %%PREFIX%%/bin/gitea-runner -c %%ETCDIR%%/config.yaml config init
-  chgrp %%GITEA_RUNNER_GROUP%% %%ETCDIR%%/config.yaml
-  chmod 640 %%ETCDIR%%/config.yaml
   cd /var/db/gitea-runner
-  su -m %%GITEA_RUNNER_USER%% -c 'umask 027; %%PREFIX%%/bin/gitea-runner -c %%ETCDIR%%/config.yaml register'
+  su -m %%GITEA_RUNNER_USER%% -c 'umask 027 && %%PREFIX%%/bin/gitea-runner \
+    -c %%ETCDIR%%/config.yaml register'
 
-The labels register offers by default run every job in a container
-("docker://"), and the runner will not start without a Docker-compatible
-API. On FreeBSD that is Podman's: install sysutils/podman-suite, give
-the runner's group the socket, which otherwise belongs to group
-operator, and point the runner at it:
-
-  sysrc podman_service_enable=YES
-  sysrc podman_service_api_group=%%GITEA_RUNNER_GROUP%%
-  service podman_service restart
-  sysrc gitea_runner_env="DOCKER_HOST=unix:///var/run/podman/podman.sock"
-  %%PREFIX%%/bin/gitea-runner -c %%ETCDIR%%/config.yaml config set container.docker_host -
-
-Runners with users of their own need that group too. Podman runs as
-root, so the socket gives control of it. With container.docker_host
-left empty or set to a socket, the runner also mounts that socket into
-every job container, which hands that control to each workflow; "-"
-keeps it out. A runner that runs jobs directly on the host needs no
-Podman: give it host labels instead, such as freebsd:host, at the
-prompt or with register --labels.
-
-Then start it:
+To start it, enable it, create its log file, and have syslogd pick up
+its log settings:
 
   sysrc gitea_runner_enable=YES
   newsyslog -CN /var/log/gitea-runner.log
   service syslogd reload
   service gitea_runner start
 
-Later changes made with "config set" keep the file's owner and mode.
-Output goes to /var/log/gitea-runner.log, tagged with each profile, and
-also to /var/log/daemon.log through the daemon.info line in
-/etc/syslog.conf.
+The runner logs to /var/log/gitea-runner.log. Its output also appears
+in /var/log/daemon.log, because /etc/syslog.conf sends daemon.info
+there.
 
-For several, list them in gitea_runner_profiles and give each its
-gitea_runner_<profile>_* variables; see
-%%PREFIX%%/etc/rc.d/gitea_runner. Each profile's config is
-%%ETCDIR%%/<profile>.yaml, made readable the same way,
-with a group its user is in.
-Each profile runs in /var/db/gitea-runner/<profile>, which keeps its
-.runner: create it with install -d -o <user> -g <group> -m 750 and
-register from there. The runner keeps its caches and host work
-directories under its user's home, so profiles that share a user each
-need their own cache.dir and host.workdir_parent in their config. That
-home has to exist and be writable by the user; for a user without one,
-set both in the config instead.
+Unless all of its labels are host labels, such as freebsd:host, the
+runner runs jobs in containers and needs a Docker-compatible API, such
+as Podman's. Host jobs need it too, for Docker actions. For Podman,
+give the runner's group Podman's socket with podman_service_api_group,
+restart podman_service, and set container.docker_host to "-" in the
+config: the socket gives control of root's Podman, and otherwise every
+job container gets it.
 
-If you are coming from devel/gitea-act_runner: pkg upgrade does not
-replace it. Delete it and register again, as above, then remove the old
-runner from Gitea's Actions settings, where it stays listed as offline.
-The runner now runs as %%GITEA_RUNNER_USER%%, from /var/db/gitea-runner. Its
-config moves from %%PREFIX%%/etc/act_runner/act_runner.conf to
-%%ETCDIR%%/config.yaml. In rc.conf, rename
-act_runner_enable, _user, _group, _config and _args to gitea_runner_*.
-gitea_runner_args no longer includes -c, and act_runner_facility,
-_priority, _cache_dir, _log_dir, _run_dir and _log_file have no
-replacement. The act_runner user is not removed.
+To run more than one runner, see gitea_runner_profiles in
+%%PREFIX%%/etc/rc.d/gitea_runner.
 EOM
 }
 ]
