@@ -248,9 +248,10 @@ session may not allow. Hand them the command rather than gating on it:
 rake testport
 ```
 
-**Follow the build with `Monitor` from the moment it starts.** A loop that waits
-only for the result says nothing until the end. Say what each event shows as it
-arrives. A monitor lasts at most 30 minutes, so re-arm it until the build ends.
+**Follow the build with `Monitor`, from the turn that hands over the
+command.** A loop that waits only for the result says nothing until the end.
+Say what each event shows as it arrives. A monitor lasts at most 30 minutes, so
+re-arm it until the build ends.
 
 - `rake testport` shows you no output, and its runs are under
   `/usr/local/poudriere/data/logs/bulk/<jail>-githead/`. The Rakefile picks the
@@ -268,8 +269,10 @@ arrives. A monitor lasts at most 30 minutes, so re-arm it until the build ends.
   matching. Emit a line when that process appears and when it goes away:
   a run that fails before it starts, on a broken or nonexistent port or with
   "jail already running", ends without `latest` ever changing. If neither the
-  process nor a new `latest` has appeared when the first monitor expires, ask
-  the user what their terminal shows rather than re-arming.
+  process nor a new `latest` has appeared when a monitor expires, say so in
+  one line, give the command again and re-arm: the user may not have seen the
+  command yet, and may start it later without saying so. When they next
+  write, check for a new run and give its result in your reply.
 
   When `latest` changes, the new run is this one. Once the run directory's
   `.poudriere.status.journal%` has any line after `load_priorities:`

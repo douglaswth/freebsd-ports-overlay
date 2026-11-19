@@ -264,10 +264,11 @@ so it is not optional. Where options alter the plist, the chapter asks for a run
 with all options selected **and** one with all deselected;
 `rake 'testport[-c]'` presents the options dialog first.
 
-**Follow every build with `Monitor` from the moment it starts** —
-`rake testport` and caronade (step 11) alike. A loop that waits only for the
-result says nothing until the end. Say what each event shows as it arrives. A
-monitor lasts at most 30 minutes, so re-arm it until the build ends.
+**Follow every build with `Monitor`** — `rake testport` from the turn that
+hands over its command, caronade (step 11) from the moment the job id is
+known. A loop that waits only for the result says nothing until the end. Say
+what each event shows as it arrives. A monitor lasts at most 30 minutes, so
+re-arm it until the build ends.
 
 - **caronade:** poll the job's JSON every 30 seconds or more, letting a failed
   fetch pass, and emit each queue's `Status` as it changes, `portlint`
@@ -299,8 +300,10 @@ monitor lasts at most 30 minutes, so re-arm it until the build ends.
   matching. Emit a line when that process appears and when it goes away:
   a run that fails before it starts, on a broken or nonexistent port or with
   "jail already running", ends without `latest` ever changing. If neither the
-  process nor a new `latest` has appeared when the first monitor expires, ask
-  the user what their terminal shows rather than re-arming.
+  process nor a new `latest` has appeared when a monitor expires, say so in
+  one line, give the command again and re-arm: the user may not have seen the
+  command yet, and may start it later without saying so. When they next
+  write, check for a new run and give its result in your reply.
 
   When `latest` changes, the new run is this one. Once the run directory's
   `.poudriere.status.journal%` has any line after `load_priorities:`

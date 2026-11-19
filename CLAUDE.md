@@ -275,6 +275,22 @@ prerequisite and never need `sudo`.
 which also covers `pkg-plist` verification and `stage-qa`. The Porter's Handbook
 "Testing" chapter is the current authority on what is expected.
 
+**Anything that needs `sudo` is the user's to run, and a build they start —
+`rake testport` or a `poudriere bulk` — is yours to watch.** Set up the watch
+in the same turn you hand over the command, and keep it going until the run
+shows up: they may not get to it for hours, and may start it without saying
+so. When a watch runs out with no run, say so in one line, give the command
+again and set the watch up again. When they next write, check for a new run
+and give its result in your reply. Observed 2026-11-18 and 2026-11-19: twice
+a watch set up with the command ran out before the user started the run, and
+twice it was not set up again — the first time because the skills then said
+to ask instead, the second while waiting for the user to say they were
+starting. They ran the `testport` the next morning without saying so, and
+nobody looked at the result until they asked. The `add-port`, `update-port`
+and `review-port-pr` skills say how to watch a `testport` run; a
+`poudriere bulk` writes its runs to the same
+`/usr/local/poudriere/data/logs/bulk/<jail>-githead/` directory.
+
 Submission goes through Bugzilla, product "Ports & Packages", component
 "Individual Port(s)", titled `category/portname: Update to X.Y`. The handbook
 prefers `git format-patch` over a plain diff, because it carries author identity
